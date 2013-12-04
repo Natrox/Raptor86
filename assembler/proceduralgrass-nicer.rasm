@@ -1,0 +1,607 @@
+; Global variables
+
+$seed1 = 234712					; Fixed seed for the grass generation
+$seed2 = 543545					; Fixed seed for the grass generation
+$bufferAddress1 = 0				; Memory location of a texture buffer
+$bufferAddress2 = 307200		; Another texture buffer
+
+$randomValue = 0
+$randomValueFloat = 0.0f
+
+$groundColor = 1705735          ; 0x1A0707
+
+$m_z = 0
+$m_w = 0
+
+$colorArray = 614400
+
+$memsetDst = 0
+$memsetVal = 0
+$memsetLength = 0
+
+$grassBladeX = 0
+$grassBladeY = 0
+
+$grassBladeColor = 0
+
+$grassBladeTargetBuffer = 0
+$colorToMul = 0
+
+$blurGrassR = 0
+$blurGrassG = 0
+$blurGrassB = 0
+
+$blurColor = 0;
+
+
+; This is the entry function
+
+?__begin:
+	mov $m_z, $seed1
+	mov $m_w, $seed2
+
+	call ?__generateColorArray
+
+	jmp ?__createGrass
+
+
+; This function creates a constant array of hand-picked grass-like colors
+
+?__generateColorArray:
+	xor r0, r0
+	mov r0, $colorArray
+
+	mov [r0], 0x2a8004
+	add r0, 4
+	mov [r0], 0x3faa04
+	add r0, 4
+	mov [r0], 0x2d7104
+	add r0, 4
+	mov [r0], 0x3a8e05
+	add r0, 4
+	mov [r0], 0x214e03
+	add r0, 4
+	mov [r0], 0x285a04
+	add r0, 4
+	mov [r0], 0x3e7905
+	add r0, 4
+	mov [r0], 0x254204
+	add r0, 4
+	mov [r0], 0x3e6705
+	add r0, 4
+	mov [r0], 0x1f3403
+	add r0, 4
+	mov [r0], 0x6daf05
+	add r0, 4
+	mov [r0], 0x588f06
+	add r0, 4
+	mov [r0], 0x2a6604
+	add r0, 4
+	mov [r0], 0x304e04
+	add r0, 4
+	mov [r0], 0x385a05
+	add r0, 4
+	mov [r0], 0x4e7805
+	add r0, 4
+
+	ret
+
+
+; This function fills a location with an unsinged integer
+
+?__memset:
+	push r30
+	push r31
+	prolog
+
+	mov r30, $memsetDst
+	xor r31, r31
+	
+	?__memsetInner:
+		mov [r30], $memsetVal
+		add r30, 4
+		add r31, 4
+		cmp r31, $memsetLength
+		jb ?__memsetInner
+
+	epilog
+	pop r31
+	pop r30
+	ret
+
+
+; A simple random function (multiply-with-carry)
+
+?__getRandom:
+	push r0
+	push r1
+	prolog
+	mov r0, $m_z
+	and r0, 65535
+	mul r0, 36969
+	mov r1, $m_z
+	shr r1, 16
+	add r0, r1
+	mov $m_z, r0
+	mov r0, $m_w
+	and r0, 65535
+	mul r0, 18000
+	mov r1, $m_w
+	shr r1, 16
+	add r0, r1
+	mov $m_w, r0
+	mov $randomValue, $m_z
+	shl $randomValue, 16
+	add $randomValue, $m_w
+	epilog
+	pop r1
+	pop r0
+	ret
+
+
+; Returns a random floating point value of -1.0f to 1.0f
+
+?__getRandomFloat:
+	push r0
+	push r1
+	prolog
+	call ?__getRandom
+	mov r0, $randomValue
+	uif r0
+	mov r1, 0xffffffff 			; Max uint
+	uif r1
+	fdiv r0, r1
+	fmul r0, 2.0f
+	fsub r0, 1.0f
+	mov $randomValueFloat, r0
+	epilog
+	pop r1
+	pop r0
+	ret
+
+
+; Multiply a color with a floating point amount stored in register 25
+
+?__mulColor:
+	push r0
+	push r1
+	push r2
+	push r3
+	prolog
+
+	fmul r25, 255.0f
+	ftoi r25
+
+	; Fixed point math to multiply an unsigned int color
+	mov r0, $colorToMul
+	and r0, 0xff
+	mul r0, r25
+	shr r0, 8
+	cmp r0, 255
+	jb ?__mulColorBOK
+	mov r0, 255
+
+	?__mulColorBOK:
+
+	mov r1, $colorToMul
+	and r1, 0xff00
+	shr r1, 8
+	mul r1, r25
+	shr r1, 8
+
+	cmp r1, 255
+	jb ?__mulColorGOK
+	mov r1, 255
+
+	?__mulColorGOK:
+
+	shl r1, 8
+
+	mov r2, $colorToMul
+	and r2, 0xff0000
+	shr r2, 16
+	mul r2, r25
+	shr r2, 8
+
+	cmp r2, 255
+	jb ?__mulColorROK
+	mov r2, 255
+
+	?__mulColorROK:
+
+	shl r2, 16
+
+	xor r3, r3
+
+	or r3, r0
+	or r3, r1
+	or r3, r2
+
+	mov $colorToMul, r3
+
+	epilog
+	pop r3
+	pop r2
+	pop r1
+	pop r0
+	ret
+
+
+; Check the floating point coordinates in register 15 and register 16 and wrap them around the screen
+
+?__checkCoords:
+	prolog
+
+	fcom r15, 0.0f
+	jge ?__checkCoordsXB0OK
+	fadd r15, 320.0f
+	?__checkCoordsXB0OK:
+	fcom r15, 320.0f
+	jl ?__checkCoordsXAE320OK
+	fsub r15, 320.0f
+	?__checkCoordsXAE320OK:
+
+	fcom r16, 0.0f
+	jge ?__checkCoordsYB0OK
+	fadd r16, 240.0f
+	?__checkCoordsYB0OK:
+	fcom r16, 240.0f
+	jl ?__checkCoordsYAE240OK
+	fsub r16, 240.0f
+	?__checkCoordsYAE240OK:
+
+	epilog
+	ret
+
+
+; Create a single grass blade
+
+?__createGrassBlade:
+	push r0
+	push r1
+	push r2
+	push r3
+	prolog
+
+	xor r1, r1
+
+	; Random direction 1 X
+	call ?__getRandomFloat
+	mov r10, $randomValueFloat
+	fmul r10, 0.5f
+
+	; Random direction 1 Y
+	call ?__getRandomFloat
+	mov r11, $randomValueFloat
+
+	; Random direction 2 X
+	call ?__getRandomFloat
+	mov r12, $randomValueFloat
+	call ?__getRandomFloat
+	mov r0, $randomValueFloat
+	fmul r0, 0.1f
+	fadd r0, 0.5f
+	fmul r12, r0
+
+	; Random direction 2 Y
+	call ?__getRandomFloat
+	mov r13, $randomValueFloat
+	fmul r13, r0
+
+	; Random length
+	call ?__getRandom
+	mov r14, $randomValue
+	mod r14, 8
+	add r14, 4
+
+	; X and Y coords
+	mov r15, $grassBladeX
+	mov r16, $grassBladeY
+	uif r15
+	uif r16
+
+	mov r20, 1.0f
+
+	?__createGrassBladeInnerLoop:
+		call ?__checkCoords
+
+		mov r17, r15
+		ftoi r17
+
+		mov r18, r16
+		ftoi r18
+
+		mov r2, r18
+		mul r2, 320
+		add r2, r17
+		mul r2, 4
+		add r2, $grassBladeTargetBuffer
+
+		mov [r2], $grassBladeColor
+
+		fadd r15, r10
+		fadd r15, r12
+		fadd r16, r11
+		fadd r16, r13
+
+		fadd r20, 0.01f
+		mov r25, r20
+		mov $colorToMul, $grassBladeColor
+		call ?__mulColor
+		mov $grassBladeColor, $colorToMul
+
+		add r1, 1
+		cmp r1, r14
+		jb ?__createGrassBladeInnerLoop
+
+	epilog
+	pop r3
+	pop r2
+	pop r1
+	pop r0
+	ret
+
+
+; Seperate a color and add it to the blur total
+
+?__seperateBlurColor:
+	push r0
+	push r1
+	push r2
+	push r3
+	prolog
+
+	mov r0, $blurColor
+	and r0, 0xff
+
+	mov r1, $blurColor
+	and r1, 0xff00
+	shr r1, 8
+
+	mov r2, $blurColor
+	and r2, 0xff0000
+	shr r2, 16
+
+	add $blurGrassR, r2
+	add $blurGrassG, r1
+	add $blurGrassB, r0
+
+	epilog
+	pop r3
+	pop r2
+	pop r1
+	pop r0
+	ret
+
+
+; Get one of the grass colors randomly
+
+?__getRandomColor:
+	push r1
+	prolog
+	call ?__getRandom
+	mov r1, $randomValue
+	mod r1, 16
+	mul r1, 4
+	add r1, $colorArray
+	mov r0, [r1]
+	epilog
+	pop r1
+	ret
+
+
+; Blur the grass buffer (box blur)
+
+?__blurGrass:
+	push r0
+	push r1
+	push r2
+	push r3
+	prolog
+
+	mov r10, 0.0f
+	mov r11, 0.0f
+
+	mov r29, $bufferAddress1
+	mov r28, $bufferAddress2
+
+	?__blurMainY:
+		mov r10, 0.0f
+
+		?__blurMainX:
+			mov r0, -1.0f
+			mov r1, -1.0f
+
+			xor r27, r27
+
+			xor $blurGrassR, $blurGrassR
+			xor $blurGrassG, $blurGrassG
+			xor $blurGrassB, $blurGrassB
+
+			?__blurInnerY:
+				mov r1, -1.0f
+				mov r13, r11
+				fadd r13, r0
+
+				?__blurInnerX:
+					mov r12, r10
+					fadd r12, r1
+
+					mov r15, r12
+					mov r16, r13
+
+					call ?__checkCoords
+
+					ftoi r15
+					ftoi r16
+
+					mov r25, r16
+					mul r25, 320
+					add r25, r15
+					mul r25, 4
+
+					mov $blurColor, [r25]
+					call ?__seperateBlurColor
+
+					fadd r1, 1.0f
+					fcom r1, 0.95f
+					jl ?__blurInnerX
+
+				fadd r0, 1.0f
+				fcom r0, 0.95f
+				jl ?__blurInnerY
+
+			mov r26, $blurGrassB
+			div r26, 4
+
+			or r27, r26
+
+			mov r26, $blurGrassG
+			div r26, 4
+			shl r26, 8
+
+			or r27, r26
+
+			mov r26, $blurGrassR
+			div r26, 4
+			shl r26, 16
+
+			or r27, r26
+
+			mov [r28], r27
+			add r28, 4
+			add r29, 4
+
+			fadd r10, 1.0f
+			fcom r10, 320.0f
+			jl ?__blurMainX
+
+		fadd r11, 1.0f
+		fcom r11, 240.0f
+		jl ?__blurMainY
+
+	epilog
+	pop r3
+	pop r2
+	pop r1
+	pop r0
+	ret
+
+
+; Create the grass buffer.
+
+?__createGrass:
+	xor r1, r1
+	xor r2, r2
+
+	mov $memsetDst, $bufferAddress1
+	mov $memsetLength, 307200
+	mov $memsetVal, $groundColor
+
+	mov r3, $bufferAddress1
+
+	call ?__memset
+
+	mov $grassBladeTargetBuffer, $bufferAddress1
+
+	?__createGrassY1:
+		xor r1, r1
+
+		?__createGrassX1:
+			mov $grassBladeX, r1
+			mov $grassBladeY, r2
+
+			call ?__getRandomColor
+			mov $grassBladeColor, r0
+
+			call ?__createGrassBlade
+
+			add r1, 2
+			cmp r1, 320
+			jb ?__createGrassX1
+
+		add r2, 2
+		cmp r2, 240
+		jb ?__createGrassY1
+
+	xor r2, r2
+
+	call ?__blurGrass
+	mov r3, $bufferAddress2
+
+	mov $grassBladeTargetBuffer, $bufferAddress2
+
+	?__createGrassY2:
+		xor r1, r1
+
+		?__createGrassX2:
+			mov $grassBladeX, r1
+			mov $grassBladeY, r2
+
+			call ?__getRandomColor
+			mov $grassBladeColor, r0
+
+			call ?__createGrassBlade
+
+			call ?__getRandom
+			and $randomValue, 1
+			inc $randomValue
+
+			add r1, $randomValue
+			cmp r1, 320
+			jb ?__createGrassX2
+
+		call ?__getRandom
+		and $randomValue, 1
+		inc $randomValue
+
+		add r2, $randomValue
+		cmp r2, 240
+		jb ?__createGrassY2
+
+	xor r2, r2
+
+	push r29
+	push r30
+	push r31
+
+	mov r30, 0
+	mov r29, $bufferAddress2
+	xor r31, r31
+	
+	?__copyInner:
+		mov [r30], [r29]
+		add r29, 4
+		add r30, 4
+		add r31, 4
+		cmp r31, $bufferAddress2
+		jb ?__copyInner
+
+	pop r31
+	pop r30
+	pop r29
+
+	call ?__blurGrass
+	mov r3, $bufferAddress2
+
+	; Draw the blurred buffer
+
+	?__drawGrassY1:
+		xor r1, r1
+
+		?__drawGrassX1:
+			rpos r1, r2
+			rplot [r3]
+
+			add r3, 4
+			add r1, 1
+			cmp r1, 320
+			jb ?__drawGrassX1
+
+		add r2, 1
+		cmp r2, 240
+		jb ?__drawGrassY1
+
+
+?__exit:
+	
