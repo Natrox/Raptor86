@@ -1,0 +1,93 @@
+; cx		%0
+; cy		%4
+; n			%8
+; zx    	%12
+; zy    	%16
+; new_zx	%20
+
+?__begin:
+	jmp ?__generateSet
+
+?__resetMemory:
+	prolog
+	xor r0, r0
+
+	?__resetMemoryLoop:
+		xor [r0], [r0]
+		add r0, 4
+		cmp r0, 24
+		jne ?__resetMemoryLoop
+
+	epilog
+	ret
+
+?__generateSet:
+	call ?__resetMemory
+
+	?__forY:
+		xor r0, r0
+
+		?__forX:
+			xor %12, %12
+			xor %16, %16
+			xor %8, %8
+
+			?__mandelBrotLoop:
+			xor r5, r5
+			mov r3, %12					; While conditions
+			imul r3, r3
+			idiv r3, 11585s
+			mov r4, %16
+			imul r4, r4
+			idiv r4, 11585s
+			mov r5, r4
+			add r5, r3
+			cmp r5, 46340s
+			jae ?__exitMandelBrotLoop
+			cmp %8, 0xffff
+			jae ?__exitMandelBrotLoop		; End while conditions
+
+				mov %20, r3				; While loop
+				sub %20, r4
+				mov r5, %0
+				imul r5, 11585s
+				idiv r5, 320s
+				imul r5, 28963s
+				idiv r5, 11585s
+				sub r5, 23170
+				add %20, r5
+
+				mov r6, %12
+				imul r6, %16
+				idiv r6, 11585s
+				imul r6, 23170s
+				idiv r6, 11585s
+				mov r5, %4
+				imul r5, 11585s
+				idiv r5, 240s
+				imul r5, 23170s
+				idiv r5, 11585s
+				sub r5, 11585
+				add r6, r5
+				mov %16, r6
+
+				mov %12, %20
+
+				add %8, 1024
+				jmp ?__mandelBrotLoop
+
+			?__exitMandelBrotLoop:
+			mov r10, 0xffffff
+			sub r10, %8
+			mov r11, 0xffffff
+			sub r11, r10
+			rpos %0, %4
+			rplot r11
+			add %0, 1
+			cmp %0, 320
+			jb ?__forX
+
+		xor %0, %0
+		add %4, 1
+		cmp %4, 240
+		jb ?__forY

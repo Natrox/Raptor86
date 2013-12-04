@@ -1,0 +1,63 @@
+?begin:
+rclr 0xffffffff
+mov r0, 0
+mov r1, 0
+call ?randomNumberInit
+jmp ?loop
+
+?randomNumberInit:
+prolog
+mov %256, 4234213
+mov %260, 1323211
+epilog
+ret
+
+?getRandom:
+push r0
+push r1
+prolog
+mov r0, %256
+and r0, 65535
+mul r0, 36969
+mov r1, %256
+shr r1, 16
+add r0, r1
+mov %256, r0
+mov r0, %260
+and r0, 65535
+mul r0, 18000
+mov r1, %260
+shr r1, 16
+add r0, r1
+mov %260, r0
+mov r32, %256
+shl r32, 16
+add r32, %260
+epilog
+pop r1
+pop r0
+ret
+
+?checkBounds:
+prolog
+cmp r0, 320
+jb ?xFine
+xor r0, r0
+add r1, 1
+
+?xFine:
+cmp r1, 240
+jb ?yFine
+xor r1, r1
+
+?yFine:
+epilog
+ret
+
+?loop:
+call ?getRandom
+inc r0
+call ?checkBounds
+rpos r0, r1
+rplot r32
+jmp ?loop

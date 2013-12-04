@@ -1,0 +1,142 @@
+?begin:
+rclr 0xffffffff
+mov r0, 320
+mov r1, 0
+call ?randomNumberInit
+jmp ?loop
+ 
+?randomNumberInit:
+prolog
+mov %256, 4234213
+mov %260, 1323211
+epilog
+ret
+ 
+?reduceColor:
+prolog
+push r0
+push r1
+push r2
+push r3
+push r4
+ 
+mov r0, r32
+mov r1, r32
+mov r2, r32
+ 
+and r0, 0xff0000
+shr r0, 16
+mul r0, r3
+shr r0, 8
+shl r0, 16
+ 
+and r1, 0xff00
+shr r1, 8
+mul r1, r3
+shr r1, 8
+shl r1, 8
+ 
+and r2, 0xff
+mul r2, r3
+shr r2, 8
+ 
+xor r32, r32
+or r32, r0
+or r32, r1
+or r32, r2
+ 
+pop r4
+pop r3
+pop r2
+pop r1
+pop r0
+epilog
+ret
+ 
+?getRandom:
+push r0
+push r1
+prolog
+mov r0, %256
+and r0, 65535
+mul r0, 36969
+mov r1, %256
+shr r1, 16
+add r0, r1
+mov %256, r0
+mov r0, %260
+and r0, 65535
+mul r0, 18000
+mov r1, %260
+shr r1, 16
+add r0, r1
+mov %260, r0
+mov r32, %256
+shl r32, 16
+add r32, %260
+epilog
+pop r1
+pop r0
+ret
+ 
+?checkBounds:
+prolog
+cmp r0, 320
+jb ?xFine
+xor r0, r0
+ 
+?xFine:
+epilog
+ret
+ 
+?loop:
+mov r3, r0
+mod r3, 8
+cmp r3, 0
+je ?newRandom
+jmp ?noNewRandom
+ 
+?newRandom:
+call ?getRandom
+ 
+?noNewRandom:
+inc r0
+call ?checkBounds
+xor r1, r1
+ 
+?innerLoop:
+push r32
+ 
+mov r3, 256
+mul r3, r1
+shr r3, 8
+mov r4, 256
+sub r4, r3
+mov r3, r4
+ 
+call ?reduceColor
+ 
+mov r33, r32
+call ?getRandom
+xchg r33, r32
+and r33, 0xff
+mul r33, 64
+shr r33, 8
+ 
+mov r3, 256
+mul r3, r33
+shr r3, 8
+mov r4, 256
+sub r4, r3
+mov r3, r4
+ 
+call ?reduceColor
+ 
+rpos r0, r1
+rplot r32
+pop r32
+inc r1
+cmp r1, 240
+jb ?innerLoop
+ 
+jmp ?loop

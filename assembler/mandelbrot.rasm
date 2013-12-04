@@ -1,0 +1,93 @@
+$cx = 0
+$cy = 0
+$n = 0
+$zx = 0
+$zy = 0
+$new_zx = 0
+
+$res_X = 320
+$res_Y = 240
+
+$res_X_f = 320.0f
+$res_Y_f = 240.0f
+
+?__begin:
+	jmp ?__generateSet
+
+?__resetMemory:
+	prolog
+	xor r0, r0
+
+	?__resetMemoryLoop:
+		xor [r0], [r0]
+		add r0, 4
+		cmp r0, 24
+		jne ?__resetMemoryLoop
+
+	epilog
+	ret
+
+?__generateSet:
+	call ?__resetMemory
+
+	?__forY:
+		xor r0, r0
+
+		?__forX:
+			xor $zx, $zx
+			xor $zy, $zy
+			xor $n, $n
+
+			?__mandelBrotLoop:
+			xor r5, r5
+			mov r3, $zx					; While conditions
+			fmul r3, r3
+			mov r4, $zy
+			fmul r4, r4
+			mov r5, r4
+			fadd r5, r3
+			fcom r5, 4.0f
+			jge ?__exitMandelBrotLoop
+			cmp $n, 0xffff
+			jae ?__exitMandelBrotLoop		; End while conditions
+
+				mov $new_zx, r3				; While loop
+				fsub $new_zx, r4
+				mov r5, $cx
+				uif r5					; Convert r5 from uint to float
+				fdiv r5, $res_X_f
+				fmul r5, 2.5f
+				fsub r5, 2.0f
+				fadd $new_zx, r5
+
+				mov r6, $zx
+				fmul r6, $zy
+				fmul r6, 2.0f
+				mov r5, $cy
+				uif r5
+				fdiv r5, $res_Y_f
+				fmul r5, 2.0f
+				fsub r5, 1.0f
+				fadd r6, r5
+				mov $zy, r6
+
+				mov $zx, $new_zx
+
+				add $n, 1024
+				jmp ?__mandelBrotLoop
+
+			?__exitMandelBrotLoop:
+			mov r10, 0xffffff
+			sub r10, $n
+			mov r11, 0xffffff
+			sub r11, r10
+			rpos $cx, $cy
+			rplot r11
+			add $cx, 1
+			cmp $cx, $res_X
+			jb ?__forX
+
+		xor $cx, $cx
+		add $cy, 1
+		cmp $cy, $res_Y
+		jb ?__forY
