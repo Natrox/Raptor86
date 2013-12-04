@@ -1,37 +1,37 @@
 ; Global variables
 
-	$seed1 = 234712					; Fixed seed for the grass generation
-	$seed2 = 543545					; Fixed seed for the grass generation
-	$bufferAddress1 = 0				; Memory location of a texture buffer
-	$bufferAddress2 = 307200		; Another texture buffer
+$seed1 = 234712					; Fixed seed for the grass generation
+$seed2 = 543545					; Fixed seed for the grass generation
+$bufferAddress1 = 0				; Memory location of a texture buffer
+$bufferAddress2 = 307200		; Another texture buffer
 
-	$randomValue = 0
-	$randomValueFloat = 0.0f
+$randomValue = 0
+$randomValueFloat = 0.0f
 
-	$groundColor = 1705735          ; 0x1A0707
+$groundColor = 1705735          ; 0x1A0707
 
-	$m_z = 0
-	$m_w = 0
+$m_z = 0
+$m_w = 0
 
-	$colorArray = 614400
+$colorArray = 614400
 
-	$memsetDst = 0
-	$memsetVal = 0
-	$memsetLength = 0
+$memsetDst = 0
+$memsetVal = 0
+$memsetLength = 0
 
-	$grassBladeX = 0
-	$grassBladeY = 0
+$grassBladeX = 0
+$grassBladeY = 0
 
-	$grassBladeColor = 0
+$grassBladeColor = 0
 
-	$grassBladeTargetBuffer = 0
-	$colorToMul = 0
+$grassBladeTargetBuffer = 0
+$colorToMul = 0
 
-	$blurGrassR = 0
-	$blurGrassG = 0
-	$blurGrassB = 0
+$blurGrassR = 0
+$blurGrassG = 0
+$blurGrassB = 0
 
-	$blurColor = 0;
+$blurColor = 0;
 
 
 ; This is the entry function
@@ -87,7 +87,7 @@
 	ret
 
 
-? This function fills a location with an unsinged integer
+; This function fills a location with an unsinged integer
 
 ?__memset:
 	push r30
