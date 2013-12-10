@@ -18,7 +18,7 @@ namespace Raptor
 			hi_HeapLengthInBytes( lengthInBytes )
 			{
 				hi_HeapPtr = (unsigned char*) malloc( lengthInBytes );
-				hi_StaticHeapSectionRadix = 0;
+				hi_StaticHeapSectionOffset = 0;
 
 				if ( hi_HeapPtr == 0 )
 				{
@@ -35,8 +35,8 @@ namespace Raptor
 			unsigned char* hi_HeapPtr;
 			unsigned int hi_HeapLengthInBytes;
 
-			// Radix (offset) for the static heap section data.
-			unsigned int hi_StaticHeapSectionRadix;
+			// Offset for the static heap section data.
+			unsigned int hi_StaticHeapSectionOffset;
 		};
 	};
 };

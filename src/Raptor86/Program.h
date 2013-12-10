@@ -108,8 +108,8 @@ namespace Raptor
 					unsigned char* address = (unsigned char*) heap->hi_HeapPtr + heap->hi_HeapLengthInBytes - 1048576 - heapSize - 4;
 					fread( heapSection, heapSize, 1, file );
 
-					heap->hi_StaticHeapSectionRadix = heap->hi_HeapLengthInBytes - 1048576 - 4;
-					heap->hi_StaticHeapSectionRadix -= heapSize;
+					heap->hi_StaticHeapSectionOffset = heap->hi_HeapLengthInBytes - 1048576 - 4;
+					heap->hi_StaticHeapSectionOffset -= heapSize;
 
 					memcpy( address, heapSection, heapSize );
 

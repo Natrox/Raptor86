@@ -219,87 +219,93 @@ void VirtualMachine::DispatchLoop( void )
 	m_Registers->ClearAllRegisters();
 	m_Registers->ClearAllFlags();
 
+	// Point all of the opcodes to NOP initially to ignore invalid opcodes.
+	for ( unsigned int i = 0; i < 0xffff; i++ )
+	{
+		ADD_OPCODE( labelNOP, i );
+	}
+
 	// Add all the current instructions.
-	ADD_OPCODE( labelADD, 0 );
-	ADD_OPCODE( labelAND, 0 );
-	ADD_OPCODE( labelASYNCK, 0 );
-	ADD_OPCODE( labelCALL, 0 );
-	ADD_OPCODE( labelCMP, 0 );
-	ADD_OPCODE( labelCPRINT, 0 );
-	ADD_OPCODE( labelDEC, 0 );
-	ADD_OPCODE( labelDIV, 0 );
-	ADD_OPCODE( labelEPILOG, 0 );
-	ADD_OPCODE( labelFABS, 0 );
-	ADD_OPCODE( labelFADD, 0 );
-	ADD_OPCODE( labelFATAN, 0 );
-	ADD_OPCODE( labelFCHS, 0 );
-	ADD_OPCODE( labelFCOM, 0 );
-	ADD_OPCODE( labelFCOS, 0 );
-	ADD_OPCODE( labelFDIV, 0 );
-	ADD_OPCODE( labelFMUL, 0 );
-	ADD_OPCODE( labelFPOW, 0 );
-	ADD_OPCODE( labelFPRINT, 0 );
-	ADD_OPCODE( labelFSIN, 0 );
-	ADD_OPCODE( labelFSQRT, 0 );
-	ADD_OPCODE( labelFSUB, 0 );
-	ADD_OPCODE( labelFTAN, 0 );
-	ADD_OPCODE( labelFTOI, 0 );
-	ADD_OPCODE( labelGETCH, 0 );
-	ADD_OPCODE( labelIAND, 0 );
-	ADD_OPCODE( labelIDIV, 0 );
-	ADD_OPCODE( labelIMOD, 0 );
-	ADD_OPCODE( labelIMUL, 0 );
-	ADD_OPCODE( labelINC, 0 );
-	ADD_OPCODE( labelINT, 0 );
-	ADD_OPCODE( labelIOR, 0 );
-	ADD_OPCODE( labelIPRINT, 0 );
-	ADD_OPCODE( labelIXOR, 0 );
-	ADD_OPCODE( labelJA, 0 );
-	ADD_OPCODE( labelJAE, 0 );
-	ADD_OPCODE( labelJB, 0 );
-	ADD_OPCODE( labelJBE, 0 );
-	ADD_OPCODE( labelJE, 0 );
-	ADD_OPCODE( labelJG, 0 );
-	ADD_OPCODE( labelJGE, 0 );
-	ADD_OPCODE( labelJL, 0 );
-	ADD_OPCODE( labelJLE, 0 );
-	ADD_OPCODE( labelJMP, 0 );
-	ADD_OPCODE( labelJNE, 0 );
-	ADD_OPCODE( labelJNO, 0 );
-	ADD_OPCODE( labelJNS, 0 );
-	ADD_OPCODE( labelJO, 0 );
-	ADD_OPCODE( labelJS, 0 );
-	ADD_OPCODE( labelJZ, 0 );
-	ADD_OPCODE( labelLEA, 0 );
-	ADD_OPCODE( labelMOD, 0 );
-	ADD_OPCODE( labelMOV, 0 );
-	ADD_OPCODE( labelMUL, 0 );
-	ADD_OPCODE( labelNEG, 0 );
-	ADD_OPCODE( labelNOP, 0 );
-	ADD_OPCODE( labelNOT, 0 );
-	ADD_OPCODE( labelOR, 0 );
-	ADD_OPCODE( labelPOP, 0 );
-	ADD_OPCODE( labelPROLOG, 0 );
-	ADD_OPCODE( labelPUSH, 0 );
-	ADD_OPCODE( labelRCLR, 0 );
-	ADD_OPCODE( labelRET, 0 );
-	ADD_OPCODE( labelRGET, 0 );
-	ADD_OPCODE( labelRPLOT, 0 );
-	ADD_OPCODE( labelRPOS, 0 );
-	ADD_OPCODE( labelSAL, 0 );
-	ADD_OPCODE( labelSAR, 0 );
-	ADD_OPCODE( labelSHL, 0 );
-	ADD_OPCODE( labelSHR, 0 );
-	ADD_OPCODE( labelSIF, 0 );
-	ADD_OPCODE( labelSLEEP, 0 );
-	ADD_OPCODE( labelSUB, 0 );
-	ADD_OPCODE( labelTEST, 0 );
-	ADD_OPCODE( labelTIME, 0 );
-	ADD_OPCODE( labelUIF, 0 );
-	ADD_OPCODE( labelUPRINT, 0 );
-	ADD_OPCODE( labelXADD, 0 );
-	ADD_OPCODE( labelXCHG, 0 );
-	ADD_OPCODE( labelXOR, 0 );
+	ADD_OPCODE( labelADD, -1 );
+	ADD_OPCODE( labelAND, -1 );
+	ADD_OPCODE( labelASYNCK, -1 );
+	ADD_OPCODE( labelCALL, -1 );
+	ADD_OPCODE( labelCMP, -1 );
+	ADD_OPCODE( labelCPRINT, -1 );
+	ADD_OPCODE( labelDEC, -1 );
+	ADD_OPCODE( labelDIV, -1 );
+	ADD_OPCODE( labelEPILOG, -1 );
+	ADD_OPCODE( labelFABS, -1 );
+	ADD_OPCODE( labelFADD, -1 );
+	ADD_OPCODE( labelFATAN, -1 );
+	ADD_OPCODE( labelFCHS, -1 );
+	ADD_OPCODE( labelFCOM, -1 );
+	ADD_OPCODE( labelFCOS, -1 );
+	ADD_OPCODE( labelFDIV, -1 );
+	ADD_OPCODE( labelFMUL, -1 );
+	ADD_OPCODE( labelFPOW, -1 );
+	ADD_OPCODE( labelFPRINT, -1 );
+	ADD_OPCODE( labelFSIN, -1 );
+	ADD_OPCODE( labelFSQRT, -1 );
+	ADD_OPCODE( labelFSUB, -1 );
+	ADD_OPCODE( labelFTAN, -1 );
+	ADD_OPCODE( labelFTOI, -1 );
+	ADD_OPCODE( labelGETCH, -1 );
+	ADD_OPCODE( labelIAND, -1 );
+	ADD_OPCODE( labelIDIV, -1 );
+	ADD_OPCODE( labelIMOD, -1 );
+	ADD_OPCODE( labelIMUL, -1 );
+	ADD_OPCODE( labelINC, -1 );
+	ADD_OPCODE( labelINT, -1 );
+	ADD_OPCODE( labelIOR, -1 );
+	ADD_OPCODE( labelIPRINT, -1 );
+	ADD_OPCODE( labelIXOR, -1 );
+	ADD_OPCODE( labelJA, -1 );
+	ADD_OPCODE( labelJAE, -1 );
+	ADD_OPCODE( labelJB, -1 );
+	ADD_OPCODE( labelJBE, -1 );
+	ADD_OPCODE( labelJE, -1 );
+	ADD_OPCODE( labelJG, -1 );
+	ADD_OPCODE( labelJGE, -1 );
+	ADD_OPCODE( labelJL, -1 );
+	ADD_OPCODE( labelJLE, -1 );
+	ADD_OPCODE( labelJMP, -1 );
+	ADD_OPCODE( labelJNE, -1 );
+	ADD_OPCODE( labelJNO, -1 );
+	ADD_OPCODE( labelJNS, -1 );
+	ADD_OPCODE( labelJO, -1 );
+	ADD_OPCODE( labelJS, -1 );
+	ADD_OPCODE( labelJZ, -1 );
+	ADD_OPCODE( labelLEA, -1 );
+	ADD_OPCODE( labelMOD, -1 );
+	ADD_OPCODE( labelMOV, -1 );
+	ADD_OPCODE( labelMUL, -1 );
+	ADD_OPCODE( labelNEG, -1 );
+	ADD_OPCODE( labelNOP, -1 );
+	ADD_OPCODE( labelNOT, -1 );
+	ADD_OPCODE( labelOR, -1 );
+	ADD_OPCODE( labelPOP, -1 );
+	ADD_OPCODE( labelPROLOG, -1 );
+	ADD_OPCODE( labelPUSH, -1 );
+	ADD_OPCODE( labelRCLR, -1 );
+	ADD_OPCODE( labelRET, -1 );
+	ADD_OPCODE( labelRGET, -1 );
+	ADD_OPCODE( labelRPLOT, -1 );
+	ADD_OPCODE( labelRPOS, -1 );
+	ADD_OPCODE( labelSAL, -1 );
+	ADD_OPCODE( labelSAR, -1 );
+	ADD_OPCODE( labelSHL, -1 );
+	ADD_OPCODE( labelSHR, -1 );
+	ADD_OPCODE( labelSIF, -1 );
+	ADD_OPCODE( labelSLEEP, -1 );
+	ADD_OPCODE( labelSUB, -1 );
+	ADD_OPCODE( labelTEST, -1 );
+	ADD_OPCODE( labelTIME, -1 );
+	ADD_OPCODE( labelUIF, -1 );
+	ADD_OPCODE( labelUPRINT, -1 );
+	ADD_OPCODE( labelXADD, -1 );
+	ADD_OPCODE( labelXCHG, -1 );
+	ADD_OPCODE( labelXOR, -1 );
 
 	ADD_OPCODE( labelEND, 0xffff - 1 );
 
@@ -969,6 +975,12 @@ labelBEGIN:
 // Read the next bytecode instruction and its flags.
 void VirtualMachine::ReadProgram( void )
 {
+	if ( m_Registers->r_InstructionPointer > m_CurrentProgram->p_NumberOfInstructions )
+	{
+		m_ProcessorState->ps_ProgramLineOpcode = 0xffff - 1;
+		return;
+	}
+
 	ProgramLine* pl = &m_CurrentProgram->p_ProgramLines[ m_Registers->r_InstructionPointer ];
 
 	m_ProcessorState->ps_ProgramLineOpcode = pl->pl_Opcode;
@@ -976,14 +988,7 @@ void VirtualMachine::ReadProgram( void )
 	m_ProcessorState->ps_Operand1 = pl->pl_Operand1;
 	m_ProcessorState->ps_Operand2 = pl->pl_Operand2;
 
-	if ( m_ProcessorState->ps_ProgramLineOpcode > m_OpcodeCounter ) m_ProcessorState->ps_ProgramLineOpcode = 0xffff - 1;
-
 	m_Registers->r_InstructionPointer++;
-
-	if ( m_Registers->r_InstructionPointer > m_CurrentProgram->p_NumberOfInstructions )
-	{
-		m_ProcessorState->ps_ProgramLineOpcode = 0xffff - 1;
-	}
 }
 
 // Bounds checking for the heap. Scheduled to be reformatted.
@@ -1012,12 +1017,12 @@ void VirtualMachine::CheckProgramLineFlags( unsigned short flags, unsigned short
 	// Check if any of the operands use a global variable and adjust the address for that.
 	if ( flags & ProgramLineFlags::OPERAND1_PROPERTY_STATIC_HEAP_SECTION )
 	{
-		operand1Val += m_HeapInfo->hi_StaticHeapSectionRadix;
+		operand1Val += m_HeapInfo->hi_StaticHeapSectionOffset;
 	}
 
 	if ( flags & ProgramLineFlags::OPERAND2_PROPERTY_STATIC_HEAP_SECTION )
 	{
-		operand2Val += m_HeapInfo->hi_StaticHeapSectionRadix;
+		operand2Val += m_HeapInfo->hi_StaticHeapSectionOffset;
 	}
 
 	// No flags? Assume operands point to raw registers.

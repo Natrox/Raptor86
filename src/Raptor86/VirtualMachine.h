@@ -26,8 +26,8 @@
 		__asm{ mov ptrr, eax };						             \
 		__asm{ pop eax };							             \
 													             \
-		if ( !n ) m_OpcodeJumpTable[ m_OpcodeCounter++ ] = ptrr; \
-		if ( n ) { m_OpcodeJumpTable[n] = ptrr; };               \
+		if ( n < 0 ) m_OpcodeJumpTable[ m_OpcodeCounter++ ] = ptrr; \
+		if ( n >= 0 ) { m_OpcodeJumpTable[n] = ptrr; };               \
 	}									   
 									
 // This is a define that performs the required steps to go to the next
@@ -107,7 +107,7 @@ namespace Raptor
 
 			void CheckAddress( void* address );
 			void CheckRegister( unsigned int regNum );
-			void CheckProgramLineFlags( unsigned short flags, unsigned short qualifFlags, void*& operand1, void*& operand2, unsigned int operand1Val, unsigned int operand2Val );
+			void CheckProgramLineFlags( unsigned short flags, unsigned short allowedFlags, void*& operand1, void*& operand2, unsigned int operand1Val, unsigned int operand2Val );
 
 		private:
 			void ResetProcessor( void );

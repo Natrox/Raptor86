@@ -21,7 +21,7 @@ namespace Raptor
 			bool ps_Halt;
 
 			// Information about the current program line.
-			unsigned int ps_ProgramLineOpcode;
+			unsigned short ps_ProgramLineOpcode;
 			unsigned int ps_ProgramLineFlags;
 			unsigned int ps_Operand1;
 			unsigned int ps_Operand2;
