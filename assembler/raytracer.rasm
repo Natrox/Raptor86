@@ -1,0 +1,731 @@
+; Raytracer in r86
+; Copyright 2014 - Sam Hardeman
+; Sphere intersection http://wiki.cgsociety.org/index.php/Ray_Sphere_Intersection
+
+; Global settings
+
+$screen_W = 320;
+$screen_H = 240;
+
+$screen_Wf = 320.0f;
+$screen_Hf = 240.0f;
+
+$v1_x = 0.0f;
+$v1_y = 0.0f;
+$v1_z = 0.0f;
+
+$v2_x = 0.0f;
+$v2_y = 0.0f;
+$v2_z = 0.0f;
+
+$vr_x = 0.0f;
+$vr_y = 0.0f;
+$vr_z = 0.0f;
+$vr = 0.0f;
+
+$r_x = 0.0f;
+$r_y = 0.0f;
+$r_z = 0.0f;
+
+$s_x = 0.0f;
+$s_y = 0.0f;
+$s_z = 0.0f;
+$s_r = 0.0f;
+$s_c = 0;
+
+$s_dr = 0;
+
+$sphereArray = 0;
+$globalMem = 0;
+
+$whichSphere = 0;
+$sphereHit = 0;
+
+$colorToMul = 0;
+
+?__start:
+	xor r0, r0
+
+	mov [r0], 1.5f
+	add r0, 4
+
+	mov [r0], -1.0f
+	add r0, 4
+
+	mov [r0], -20.0f
+	add r0, 4
+
+	mov [r0], 1.0f
+	add r0, 4
+
+	mov [r0], 0xffff00
+	add r0, 4
+
+	mov [r0], 1.9f
+	add r0, 4
+
+	mov [r0], 0.0f
+	add r0, 4
+
+	mov [r0], -16.0f
+	add r0, 4
+
+	mov [r0], 1.0f
+	add r0, 4
+
+	mov [r0], 255
+	add r0, 4
+
+	mov [r0], -1.1f
+	add r0, 4
+
+	mov [r0], -0.6f
+	add r0, 4
+
+	mov [r0], -16.0f
+	add r0, 4
+
+	mov [r0], 1.0f
+	add r0, 4
+
+	mov [r0], 982391
+	add r0, 4
+
+	mov [r0], -0.5f
+	add r0, 4
+
+	mov [r0], 0.1f
+	add r0, 4
+
+	mov [r0], -8.0f
+	add r0, 4
+
+	mov [r0], 0.3f
+	add r0, 4
+
+	mov [r0], 0xff0000
+	add r0, 4
+
+	mov $globalMem, r0
+
+	jmp ?__begin
+
+; ?_F_vector3_dot
+; ?_F_vector3_length
+; ?_F_vector3_mul_scalar_x
+; ?_F_vector3_div_scalar_x
+; ?_F_vector3_add
+; ?_F_vector3_sub
+; ?_F_vector3_mov1
+; ?_F_vector3_mov2
+; ?_F_vector3_repl1
+; ?_F_vector3_repl2
+; ?_F_vector3_refl
+
+; Vector operation functions
+; Load vector1 into $v1_* and vector2 into $v2_*
+; Result in $vr_*
+
+		?_F_vector3_refl:
+			push r0
+			push r1
+			push r2
+			prolog
+			
+			call ?_F_vector3_dot
+
+			mov r0, $v1_x
+			mov r1, $v1_y
+			mov r2, $v1_z
+
+			call ?_F_vector3_repl2
+
+			mov $v2_x, $vr
+			fmul $v2_x, 2.0f
+
+			call ?_F_vector3_mul_scalar_x
+
+			fsub r0, $vr_x
+			fsub r1, $vr_y
+			fsub r2, $vr_z
+
+			mov $vr_x, r0
+			mov $vr_y, r1
+			mov $vr_z, r2
+
+			epilog
+			pop r2
+			pop r1
+			pop r0
+			ret
+
+
+		?_F_vector3_repl1:
+			prolog
+
+			mov $v2_x, $v1_x
+			mov $v2_y, $v1_y
+			mov $v2_z, $v1_z
+
+			epilog
+			ret
+
+		?_F_vector3_repl2:
+			prolog
+
+			mov $v1_x, $v2_x
+			mov $v1_y, $v2_y
+			mov $v1_z, $v2_z
+
+			epilog
+			ret
+
+		?_F_vector3_mov1:
+			prolog
+
+			mov $v1_x, $vr_x 
+			mov $v1_y, $vr_y
+			mov $v1_z, $vr_z
+
+			epilog
+			ret
+
+		?_F_vector3_mov2:
+			prolog
+
+			mov $v2_x, $vr_x 
+			mov $v2_y, $vr_y
+			mov $v2_y, $vr_z
+
+			epilog
+			ret
+
+		?_F_vector3_sub:
+			prolog
+
+			mov $vr_x, $v1_x
+			fsub $vr_x, $v2_x
+
+			mov $vr_y, $v1_y
+			fsub $vr_y, $v2_y
+
+			mov $vr_z, $v1_z
+			fsub $vr_z, $v2_z
+
+			epilog
+			ret
+
+		?_F_vector3_add:
+			prolog
+
+			mov $vr_x, $v1_x
+			fadd $vr_x, $v2_x
+
+			mov $vr_y, $v1_y
+			fadd $vr_y, $v2_y
+
+			mov $vr_y, $v1_z
+			fadd $vr_y, $v2_z
+
+			epilog
+			ret
+
+		?_F_vector3_dot:
+			push r0
+			push r1
+			push r2
+			prolog
+
+			mov r0, $v1_x
+			fmul r0, $v2_x
+
+			mov r1, $v1_y
+			fmul r1, $v2_y
+
+			mov r2, $v1_z
+			fmul r2, $v2_z
+
+			fadd r0, r1
+			fadd r0, r2
+
+			mov $vr, r0
+
+			epilog
+			pop r2
+			pop r1
+			pop r0
+			ret
+
+		?_F_vector3_length:
+			push r0
+			push r1
+			push r2
+			prolog
+
+			mov r0, $v1_x
+			fmul r0, r0
+
+			mov r1, $v1_y
+			fmul r1, r1
+
+			mov r2, $v1_z
+			fmul r2, r2
+
+			fadd r0, r1
+			fadd r0, r2
+			fsqrt r0
+
+			mov $vr, r0
+
+			epilog
+			pop r2
+			pop r1
+			pop r0
+			ret
+
+		?_F_vector3_mul_scalar_x:
+			prolog
+
+			mov $vr_x, $v1_x
+			mov $vr_y, $v1_y
+			mov $vr_z, $v1_z
+
+			fmul $vr_x, $v2_x
+			fmul $vr_y, $v2_x
+			fmul $vr_z, $v2_x
+
+			epilog
+			ret
+
+		?_F_vector3_div_scalar_x:
+			prolog
+
+			mov $vr_x, $v1_x
+			mov $vr_y, $v1_y
+			mov $vr_z, $v1_z
+
+			fdiv $vr_x, $v2_x
+			fdiv $vr_y, $v2_x
+			fdiv $vr_z, $v2_x
+
+			epilog
+			ret
+
+; Multiply a color with a amount stored in register 25
+
+?__mulColor:
+	push r0
+	push r1
+	push r2
+	push r3
+	prolog
+
+	fmul r25, 255.0f
+	ftoi r25
+
+	; Fixed point math to multiply an unsigned int color
+	mov r0, $colorToMul
+	and r0, 0xff
+	mul r0, r25
+	shr r0, 8
+	cmp r0, 255
+	jb ?__mulColorBOK
+	mov r0, 255
+
+	?__mulColorBOK:
+
+	mov r1, $colorToMul
+	and r1, 0xff00
+	shr r1, 8
+	mul r1, r25
+	shr r1, 8
+
+	cmp r1, 255
+	jb ?__mulColorGOK
+	mov r1, 255
+
+	?__mulColorGOK:
+
+	shl r1, 8
+
+	mov r2, $colorToMul
+	and r2, 0xff0000
+	shr r2, 16
+	mul r2, r25
+	shr r2, 8
+
+	cmp r2, 255
+	jb ?__mulColorROK
+	mov r2, 255
+
+	?__mulColorROK:
+
+	shl r2, 16
+
+	xor r3, r3
+
+	or r3, r0
+	or r3, r1
+	or r3, r2
+
+	mov $colorToMul, r3
+
+	epilog
+	pop r3
+	pop r2
+	pop r1
+	pop r0
+	ret
+
+; This function checks whether ray intersects with sphere
+
+; r0 = A
+; r1 = B
+; r2 = C
+; r3 = disc
+; r4 = Q
+; r5 = T0
+; r6 = T1
+
+?__calculateSphereLighting:
+	prolog
+
+	mov $v1_x, $r_x
+	mov $v1_y, $r_y
+	mov $v1_z, $r_z
+
+	fcom r5, 0.0f
+	jge ?__secIsect
+
+	mov $v2_x, r6
+
+	jmp ?__isectDone
+	?__secIsect:
+
+	mov $v2_x, r5
+
+	?__isectDone:
+
+	call ?_F_vector3_mul_scalar_x
+	call ?_F_vector3_mov2
+
+	mov $v1_x, $s_x
+	mov $v1_y, $s_y
+	mov $v1_z, $s_z
+
+	call ?_F_vector3_sub
+	call ?_F_vector3_mov1
+	call ?_F_vector3_length
+
+	fdiv $v1_x, $vr
+	fdiv $v1_y, $vr
+	fdiv $v1_z, $vr
+
+	mov $v2_x, -0.616f
+	mov $v2_y, 0.408f
+	mov $v2_z, -0.608f
+
+	call ?_F_vector3_dot
+	mov r15, $vr
+	mov $vr, 0.0f
+	fsub $vr, r15
+
+	fcom $vr, 0.05f
+	jge ?__doNotMin
+	mov $vr, 0.05f
+	?__doNotMin:
+
+	mov $s_dr, $vr
+	fpow $s_dr, 2.0f
+	fpow $vr, 8.0f
+	fmul $vr, 32.0f
+	fadd $s_dr, $vr
+	fmul $s_dr, 1.2f
+
+	epilog
+	ret
+
+?__sphereIntersect:
+	prolog
+
+	push r0
+	push r1
+	push r2
+	push r3
+	push r4
+	push r5
+	push r6
+	push r7
+
+	; Get sphere data
+
+		mov r3, $whichSphere
+		mov $sphereHit, 0
+
+		mov $s_x, [r3]
+		add r3, 4
+		mov $s_y, [r3]
+		add r3, 4
+		mov $s_z, [r3]
+		add r3, 4
+		mov $s_r, [r3]
+		add r3, 4
+		mov $s_c, [r3]
+		add r3, 4
+
+	; Dot direction with itself
+
+		mov $v1_x, $r_x
+		mov $v1_y, $r_y
+		mov $v1_z, $r_z
+
+		call ?_F_vector3_repl1
+		call ?_F_vector3_dot
+
+		mov r0, $vr
+
+	; Dot direction with origin
+
+		mov $v2_x, $s_x
+		mov $v2_y, $s_y
+		mov $v2_z, $s_z
+
+		call ?_F_vector3_dot
+
+		mov r1, $vr
+		fmul r1, 2.0f
+
+
+	; Calculate C
+
+		call ?_F_vector3_repl2
+		call ?_F_vector3_dot
+
+		mov r2, $s_r
+		fpow r2
+		fsub $vr, r2
+		mov r2, $vr
+
+	; Calculate disc
+
+		mov r3, r1
+		fmul r3, r3
+
+		mov r16, r0
+		fmul r16, 4.0f
+		fmul r16, r2
+
+		fsub r3, r16
+
+	; If disc < 0, return
+
+		fcom r3, 0.0f
+		jge ?__succeedDiscCheck
+		jmp ?__endIntersect
+		?__succeedDiscCheck:
+
+	; Calculate discSqrt
+
+		fsqrt r3
+
+	; Calculate Q
+
+		fcom r1, 0.0f
+		jge ?__otherQ
+
+		mov r4, r1
+		mov r5, r4
+		mov r4, 0.0f
+		fsub r4, r5
+		fsub r4, r3
+		fdiv r4, 2.0f
+		jmp ?__endQ
+
+		?__otherQ:
+
+		mov r4, r1
+		mov r5, r4
+		mov r4, 0.0f
+		fsub r4, r5
+		fadd r4, r3
+		fdiv r4, 2.0f
+
+		?__endQ:
+
+	; Calculate T0 and T1
+
+		mov r5, r4
+		fdiv r5, r0
+		mov r6, r2
+		fdiv r6, r4
+
+	; T0 T1 exchange
+
+		fcom r5, r6
+		jle ?__doNotXchg
+
+		xchg r5, r6
+
+		?__doNotXchg:
+
+	; Check intersection
+
+		fcom r6, 0.0f
+		jge ?__continueCheck1
+		jmp ?__endIntersect
+		?__continueCheck1:
+		mov $sphereHit, 1
+		call ?__calculateSphereLighting
+
+	?__endIntersect:
+
+	pop r7
+	pop r6
+	pop r5
+	pop r4
+	pop r3
+	pop r2
+	pop r1
+	pop r0
+
+	epilog
+	ret
+	
+
+; This function creates a ray from the screen coords.
+
+?__createRay:
+	prolog
+
+	mov $v1_x, r0
+	uif $v1_x
+	fdiv $v1_x, 100.0f
+	mov r2, $screen_Wf
+	fdiv r2, 100.0f
+	fdiv r2, 2.0f
+	fsub $v1_x, r2
+
+	mov $v1_y, r1
+	mov r3, $screen_H
+	sub r3, $v1_y
+	mov $v1_y, r3
+	uif $v1_y
+	fdiv $v1_y, 100.0f
+	mov r2, $screen_Hf
+	fdiv r2, 100.0f
+	fdiv r2, 2.0f
+	fsub $v1_y, r2
+
+	mov $v1_z, 12.0f
+	call ?_F_vector3_length
+
+	fdiv $v1_x, $vr
+	fdiv $v1_y, $vr
+	fdiv $v1_z, $vr
+
+	mov $r_x, $v1_x
+	mov $r_y, $v1_y
+	mov $r_z, $v1_z
+
+	epilog
+	ret
+
+?__begin:
+	mov r0, 0
+	mov r1, 0
+
+	?__beginLoopY:
+		cmp r1, $screen_H
+		je ?__exitLoop
+
+		?__beginLoopX:
+			call ?__createRay
+
+			rpos r0, r1
+			mov $colorToMul, 0x00aaff
+			mov r25, r1
+			uif r25
+			fdiv r25, $screen_Hf
+			call ?__mulColor
+			rplot $colorToMul
+
+			mov $whichSphere, 0
+			call ?__sphereIntersect
+
+			mov r2, $sphereHit
+			uif r2
+			fmul r2, $s_dr
+			mov $colorToMul, $s_c
+			mov r25, r2
+			call ?__mulColor
+			mov r2, $colorToMul
+			
+			cmp $sphereHit, 0
+			je ?__skipPlot1
+			rplot r2
+			?__skipPlot1:
+
+			mov $whichSphere, 20
+			call ?__sphereIntersect
+
+			mov r2, $sphereHit
+			uif r2
+			fmul r2, $s_dr
+			mov $colorToMul, $s_c
+			mov r25, r2
+			call ?__mulColor
+			mov r2, $colorToMul
+
+			cmp $sphereHit, 0
+			je ?__skipPlot2
+			rplot r2
+			?__skipPlot2:
+
+			mov $whichSphere, 40
+			call ?__sphereIntersect
+
+			mov r2, $sphereHit
+			uif r2
+			fmul r2, $s_dr
+			mov $colorToMul, $s_c
+			mov r25, r2
+			call ?__mulColor
+			mov r2, $colorToMul
+
+			cmp $sphereHit, 0
+			je ?__skipPlot3
+			rplot r2
+			?__skipPlot3:
+
+			mov $whichSphere, 60
+			call ?__sphereIntersect
+
+			mov r2, $sphereHit
+			uif r2
+			fmul r2, $s_dr
+			mov $colorToMul, $s_c
+			mov r25, r2
+			call ?__mulColor
+			mov r2, $colorToMul
+
+			cmp $sphereHit, 0
+			je ?__skipPlot4
+			rplot r2
+			?__skipPlot4:
+
+			inc r0
+			cmp r0, $screen_W
+			jb ?__beginLoopX
+
+		inc r1
+		xor r0, r0
+		jmp ?__beginLoopY
+
+
+	?__exitLoop:
+
+	fprint $r_x
+	fprint $r_y
+	fprint $r_z
+
+?__exit:
