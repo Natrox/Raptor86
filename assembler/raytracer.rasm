@@ -61,7 +61,7 @@ $colorToMul = 0;
 	mov [r0], 0xffff00
 	add r0, 4
 
-	mov [r0], 1.9f
+	mov [r0], 0.7f
 	add r0, 4
 
 	mov [r0], 0.0f
@@ -70,7 +70,7 @@ $colorToMul = 0;
 	mov [r0], -16.0f
 	add r0, 4
 
-	mov [r0], 1.0f
+	mov [r0], 0.8f
 	add r0, 4
 
 	mov [r0], 255
@@ -195,7 +195,7 @@ $colorToMul = 0;
 
 			mov $v2_x, $vr_x 
 			mov $v2_y, $vr_y
-			mov $v2_y, $vr_z
+			mov $v2_z, $vr_z
 
 			epilog
 			ret
@@ -224,8 +224,8 @@ $colorToMul = 0;
 			mov $vr_y, $v1_y
 			fadd $vr_y, $v2_y
 
-			mov $vr_y, $v1_z
-			fadd $vr_y, $v2_z
+			mov $vr_z, $v1_z
+			fadd $vr_z, $v2_z
 
 			epilog
 			ret
@@ -409,9 +409,13 @@ $colorToMul = 0;
 	call ?_F_vector3_mul_scalar_x
 	call ?_F_vector3_mov2
 
-	mov $v1_x, $s_x
-	mov $v1_y, $s_y
-	mov $v1_z, $s_z
+	mov $v1_x, 0.0f
+	mov $v1_y, 0.0f
+	mov $v1_z, 0.0f
+
+	fsub $v1_x, $s_x
+	fsub $v1_y, $s_y
+	fsub $v1_z, $s_z
 
 	call ?_F_vector3_sub
 	call ?_F_vector3_mov1
@@ -436,11 +440,30 @@ $colorToMul = 0;
 	?__doNotMin:
 
 	mov $s_dr, $vr
-	fpow $s_dr, 2.0f
-	fpow $vr, 8.0f
-	fmul $vr, 32.0f
-	fadd $s_dr, $vr
-	fmul $s_dr, 1.2f
+
+	call ?_F_vector3_repl1
+
+	mov $v1_x, $r_x
+	mov $v1_y, $r_y
+	mov $v1_z, $r_z
+
+	call ?_F_vector3_refl
+
+	mov $v2_x, -0.616f
+	mov $v2_y, 0.408f
+	mov $v2_z, -0.608f
+
+	call ?_F_vector3_mov1
+	call ?_F_vector3_dot
+
+	fcom $vr, 0.05f
+	jge ?__doNotMin2
+	mov $vr, 0.05f
+	?__doNotMin2:
+
+	fpow $vr, 12.0f
+	fmul $s_dr, 0.75f
+	fadd $s_dr, $vr	
 
 	epilog
 	ret
@@ -502,7 +525,7 @@ $colorToMul = 0;
 		call ?_F_vector3_dot
 
 		mov r2, $s_r
-		fpow r2
+		fmul r2, r2
 		fsub $vr, r2
 		mov r2, $vr
 
