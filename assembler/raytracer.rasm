@@ -749,9 +749,6 @@ $colorToMul = 0;
 
 
 	?__exitLoop:
-
-	fprint $r_x
-	fprint $r_y
-	fprint $r_z
+	nop
 
 ?__exit:
