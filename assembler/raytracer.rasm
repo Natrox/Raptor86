@@ -669,6 +669,9 @@ $colorToMul = 0;
 			mov r25, r1
 			uif r25
 			fdiv r25, $screen_Hf
+			mov r26, 1.0f
+			fsub r26, r25
+			mov r25, r26
 			call ?__mulColor
 			rplot $colorToMul
 
