@@ -119,7 +119,7 @@ namespace Raptor
 			void SetGetPixelFunction( GetPixelFunction function );
 			void SetCheckKeyFunction( CheckKeyFunction function );
 
-		private:
+		public:
 			// User-specifiable interrupt functions.
 			void SetInterruptFunction( InterruptFunction function, unsigned char index );
 
