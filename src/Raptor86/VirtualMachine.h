@@ -140,6 +140,7 @@ namespace Raptor
 		private:
 			friend DWORD WINAPI StartVMThread( void* clientPtr );
 			HANDLE m_VMThread;
+			HANDLE m_VMClockEvent;
 			HANDLE m_VMQuitEvent;
 
 		private:

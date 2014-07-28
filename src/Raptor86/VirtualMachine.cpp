@@ -329,10 +329,10 @@ labelBEGIN:
 	insSec++;
 
 #ifdef SHOW_INSTRUCTION_COUNT
-	if ( clock() - lClock >= CLOCKS_PER_SEC )
+	if ( insSec > 100000000 )
 	{
+		R86_PRINT( "R86: ~Instructions per sec: %u\n", unsigned int( float( insSec ) / ( float( clock() - lClock ) / 1000.0f ) ) );
 		lClock = clock();
-		R86_PRINT( "R86: Instructions per sec: %u\n", insSec );
 
 		insSec = 0;
 	}
