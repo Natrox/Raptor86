@@ -4,6 +4,7 @@
 
 #include "SDL.h"
 #include "SDL_surface.h"
+#include "SDL_render.h"
 
 #undef main
 
@@ -11,12 +12,54 @@ using namespace Raptor::r86;
 
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
-SDL_Surface* screen = NULL;
+SDL_Texture* texture = NULL;
 
 CRITICAL_SECTION g_CSec;
 
+bool g_BufferedRendering = false;
+
+unsigned int g_PixelBuffer[640*480];
+
+// Interrupt 32
+
+void SwitchToBufferedRendering( VirtualMachine* vm )
+{
+	memset( g_PixelBuffer, 0, sizeof( unsigned int ) * 640 * 480 );
+
+	g_BufferedRendering = true;
+
+	// Confirm the change on the VM side.
+	vm->m_Registers->r_GeneralRegisters[0] = 1;
+}
+
+// Interrupt 33
+
+void DrawBuffer( VirtualMachine* vm )
+{
+	SDL_UpdateTexture( texture, NULL, g_PixelBuffer, 640 * sizeof ( unsigned int ) );
+
+	SDL_RenderClear( renderer );
+	SDL_RenderCopy( renderer, texture, NULL, NULL );
+	SDL_RenderPresent( renderer );
+}
+
+void PlotPixelToBuffer( unsigned int px, int x, int y )
+{
+	g_PixelBuffer[ x + y * 640 ] = px;
+}
+
 void PlotPixel( unsigned int px, int x, int y )
 {
+	if ( g_BufferedRendering )
+	{
+		PlotPixelToBuffer( px, x*2, y*2 );
+		PlotPixelToBuffer( px, x*2+1, y*2 );
+		PlotPixelToBuffer( px, x*2, y*2+1 );
+		PlotPixelToBuffer( px, x*2+1, y*2+1 );
+
+		return;						 
+	}
+
 	EnterCriticalSection( &g_CSec );
 
 	static SDL_Rect dstRect;
@@ -65,7 +108,12 @@ int main( void )
 	window = SDL_CreateWindow( "Raptor86 VM Video (F1 to load program)", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 320 * 2, 240 * 2, SDL_WINDOW_SHOWN );
 	renderer = SDL_CreateRenderer( window, -1, SDL_RENDERER_ACCELERATED );
 
+	texture = SDL_CreateTexture( renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 640, 480 );
+
 	VirtualMachine* vm = new VirtualMachine( HeapMemorySizes::HEAP_MEMORY_16M );
+
+	vm->SetInterruptFunction( SwitchToBufferedRendering, 32 );
+	vm->SetInterruptFunction( DrawBuffer, 33 );
 
 	vm->StartSuspendedVM();
 	vm->SetScreenClearFunction( ClearScreen );
@@ -102,12 +150,19 @@ int main( void )
 			GetOpenFileNameA( &file );
 
 			ClearScreen( 0 );
-			if ( strcmp( fileName, "\0" ) != 0 ) vm->LoadProgram( fileName );
+			if ( strcmp( fileName, "\0" ) != 0 ) 
+			{
+				vm->LoadProgram( fileName );
+				g_BufferedRendering = false;
+			}
 		}
 
-		EnterCriticalSection( &g_CSec );
-		SDL_RenderPresent( renderer );
-		LeaveCriticalSection( &g_CSec );
+		if ( !g_BufferedRendering )
+		{
+			EnterCriticalSection( &g_CSec );
+			SDL_RenderPresent( renderer );
+			LeaveCriticalSection( &g_CSec );
+		}
 
 		if ( events.key.keysym.scancode == SDL_SCANCODE_ESCAPE )
 		{
@@ -121,5 +176,6 @@ int main( void )
 	delete vm;
 
 	SDL_DestroyRenderer( renderer );
+	SDL_DestroyTexture( texture );
 	SDL_DestroyWindow( window );
 }
