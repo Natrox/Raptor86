@@ -15,5 +15,8 @@
 // Comment this if you do not want to know the number of instructions per second.
 #define SHOW_INSTRUCTION_COUNT
 
+// Comment out to disable heap checking (out-of-bounds checking).
+//#define HEAP_CHECKS
+
 // You may change this define to limit the speed of the VM.
 #define INSTRUCTIONS_PER_1MS_SLEEP 0xFFFFFFFF

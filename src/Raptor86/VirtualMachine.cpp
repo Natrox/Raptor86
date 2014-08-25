@@ -695,14 +695,14 @@ labelBEGIN:
 		READ_NEXT;
 
 	labelPUSH:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x55, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x555, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		m_Stack->Push( (unsigned int*) m_ProcessorState->ps_Operand1Ptr );
 
 		READ_NEXT;
 
 	labelRET:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x00, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+		//CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x00, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		m_Stack->Pop( &m_Registers->r_InstructionPointer );
 		READ_NEXT;
@@ -878,7 +878,7 @@ labelBEGIN:
 		READ_NEXT;
 
 	labelPROLOG:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x0, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+		//CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x0, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		bp = *m_Registers->r_BasePointer;
 
@@ -888,7 +888,7 @@ labelBEGIN:
 		READ_NEXT;
 
 	labelEPILOG:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x0, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+		//CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x0, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		bp = *m_Registers->r_BasePointer;
 
@@ -1062,6 +1062,7 @@ void VirtualMachine::CheckProgramLineFlags( unsigned short flags, unsigned short
 		}
 	}
 
+#ifdef HEAP_CHECKS
 	// See if the operands need to be checked for bounds-correctness.
 	if ( flags & ProgramLineFlags::plf_HeapCheckFlagsOp1 )
 	{
@@ -1072,6 +1073,7 @@ void VirtualMachine::CheckProgramLineFlags( unsigned short flags, unsigned short
 	{
 		CheckAddress( operand2 );
 	}
+#endif
 }
 
 void VirtualMachine::ResetProcessor( void )

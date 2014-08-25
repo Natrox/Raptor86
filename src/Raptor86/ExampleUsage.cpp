@@ -6,6 +6,8 @@
 #include "SDL_surface.h"
 #include "SDL_render.h"
 
+#include <time.h>
+
 #undef main
 
 using namespace Raptor::r86;
@@ -99,6 +101,13 @@ bool CheckKey( int key )
 	return GetAsyncKeyState( key ) != 0;
 }
 
+void GetTime( VirtualMachine* vm )
+{
+	time_t t = time( 0 );
+
+	vm->m_Registers->r_GeneralRegisters[0] = (unsigned int) t;
+}
+
 int main( void )
 {
 	InitializeCriticalSection( &g_CSec );
@@ -114,6 +123,7 @@ int main( void )
 
 	vm->SetInterruptFunction( SwitchToBufferedRendering, 32 );
 	vm->SetInterruptFunction( DrawBuffer, 33 );
+	vm->SetInterruptFunction( GetTime, 13 );
 
 	vm->StartSuspendedVM();
 	vm->SetScreenClearFunction( ClearScreen );
