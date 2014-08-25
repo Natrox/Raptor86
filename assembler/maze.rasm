@@ -1,0 +1,263 @@
+$screen_W = 320;
+$screen_H = 240;
+
+$screen_StrideB = 1280;
+
+$bufferAddress = 0;
+
+$randomValue = 0
+$randomValueFloat = 0.0f
+
+$m_z = 32424
+$m_w = 65477
+
+
+?begin:
+	rclr 0
+	int 13 ; Get time in r0
+	mov $m_z, r0
+	mov $m_w, $m_z
+	xor $m_w, 0x36ab77cc
+
+	call ?getRandom
+	mov r0, $randomValue
+	mod r0, $screen_W
+	call ?getRandom
+	mov r1, $randomValue
+	mod r1, $screen_H	
+	
+	xor r2, r2
+	
+	?loopClear:
+		xor [r2], [r2]
+		add r2, 1
+		cmp r2, 307200
+		jne ?loopClear
+	
+	mov r7, -1s
+	jmp ?render
+
+?render:
+	call ?mazeSearch
+	jmp ?end
+
+?mazeSearch:
+	prolog
+
+	push r0
+	push r1
+	push r4
+	push r5
+	push r7
+	
+	add r7, 1
+	mov r8, r7
+	uif r8
+	fdiv r8, 1536.0f
+	fmul r8, 255.0f
+	ftoi r8
+	mov r9, 255
+	sub r9, r8
+	shl r8, 16
+
+	sleep 1
+	
+	or r8, 0xff00ad00
+	or r8, r9
+
+	rpos r0, r1
+	rplot r8
+
+	mov r4, r0
+	mov r5, r1
+	
+	call ?getRandom
+	mov r6, $randomValue
+	mod r6, 4
+	
+	cmp r6, 1
+	je ?skipTL
+	
+	cmp r6, 2
+	je ?skipTR
+	
+	cmp r6, 3
+	je ?skipDL
+
+	; TL
+
+	sub r0, 2
+	sub r1, 2
+
+	mod r0, $screen_W
+	mod r1, $screen_H
+
+	call ?mazeSearch
+	
+	mov r0, r4
+	mov r1, r5	
+	
+	sub r0, 1
+	sub r1, 1
+	
+	rpos r0, r1
+	rplot r8
+
+	?skipTL:
+
+	mov r0, r4
+	mov r1, r5
+
+	; TR
+
+	add r0, 2
+	sub r1, 2
+
+	mod r0, $screen_W
+	mod r1, $screen_H
+	
+	call ?getIndex
+	
+	cmp [r2], 1
+	je ?skipTR
+	
+	mov [r2], 1
+
+	call ?mazeSearch
+	
+	mov r0, r4
+	mov r1, r5	
+	
+	add r0, 1
+	sub r1, 1
+	
+	rpos r0, r1
+	rplot r8
+
+	?skipTR:
+
+	mov r0, r4
+	mov r1, r5
+
+	; DL
+
+	sub r0, 2
+	add r1, 2
+
+	mod r0, $screen_W
+	mod r1, $screen_H
+	
+	call ?getIndex
+	
+	cmp [r2], 1
+	je ?skipDL
+	
+	mov [r2], 1
+
+	call ?mazeSearch
+	
+	mov r0, r4
+	mov r1, r5	
+	
+	sub r0, 1
+	add r1, 1
+	
+	rpos r0, r1
+	rplot r8
+
+	?skipDL:
+
+	mov r0, r4
+	mov r1, r5
+
+	; DR
+
+	add r0, 2
+	add r1, 2
+
+	mod r0, $screen_W
+	mod r1, $screen_H
+	
+	call ?getIndex
+	
+	cmp [r2], 1
+	je ?skipDR
+	
+	mov [r2], 1
+
+	call ?mazeSearch
+	
+	mov r0, r4
+	mov r1, r5	
+	
+	add r0, 1
+	add r1, 1
+	
+	rpos r0, r1
+	rplot r8
+
+	?skipDR:
+
+	mov r0, r4
+	mov r1, r5
+
+	pop r7
+	pop r5
+	pop r4
+	pop r1
+	pop r0
+
+	epilog
+	ret
+
+
+
+; Get index from r0 (x) and r1 (y), put it in r2
+
+?getIndex:
+	prolog
+	push r0
+	push r1
+
+	mul r1, $screen_StrideB
+	mul r0, 4
+
+	mov r2, r0
+	add r2, r1
+	add r2, $bufferAddress
+
+	pop r1
+	pop r0
+	epilog
+	ret
+
+; A simple random function (multiply-with-carry)
+
+?getRandom:
+	push r0
+	push r1
+	prolog
+	mov r0, $m_z
+	and r0, 65535
+	mul r0, 36969
+	mov r1, $m_z
+	shr r1, 16
+	add r0, r1
+	mov $m_z, r0
+	mov r0, $m_w
+	and r0, 65535
+	mul r0, 18000
+	mov r1, $m_w
+	shr r1, 16
+	add r0, r1
+	mov $m_w, r0
+	mov $randomValue, $m_z
+	shl $randomValue, 16
+	add $randomValue, $m_w
+	epilog
+	pop r1
+	pop r0
+	ret
+
+?end:
+	nop
