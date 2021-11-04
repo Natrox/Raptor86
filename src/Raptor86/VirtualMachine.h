@@ -16,25 +16,11 @@
 
 #include "Defines.h"
 
-// This define is used internally to add new instructions to the jumptable.
-#define ADD_OPCODE( label, n ) \
-	{												             \
-		void* ptrr = 0;								             \
-													             \
-		__asm{ push eax };							             \
-		__asm{ mov eax, ##label };					             \
-		__asm{ mov ptrr, eax };						             \
-		__asm{ pop eax };							             \
-													             \
-		if ( n < 0 ) m_OpcodeJumpTable[ m_OpcodeCounter++ ] = ptrr; \
-		if ( n >= 0 ) { m_OpcodeJumpTable[n] = ptrr; };               \
-	}									   
-									
 // This is a define that performs the required steps to go to the next
 // instruction in the bytecode program.
 #define READ_NEXT \
 	ReadProgram();												  \
-	opcodeLabel = m_OpcodeJumpTable[ m_ProcessorState->ps_ProgramLineOpcode ]; \
+	opcode = m_ProcessorState->ps_ProgramLineOpcode; \
 	goto labelBEGIN;							 
 
 // Type defines for various function pointers.
@@ -132,10 +118,6 @@ namespace Raptor
 		private:
 			Program* m_CurrentProgram;
 			bool m_DeleteProgram;
-
-		private:
-			void* m_OpcodeJumpTable[0xffff];
-			unsigned int m_OpcodeCounter;
 
 		private:
 			friend DWORD WINAPI StartVMThread( void* clientPtr );

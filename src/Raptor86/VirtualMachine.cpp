@@ -5,7 +5,20 @@
 
 #include <time.h>
 
+// Disable some warnings
+#pragma warning(disable : 4311)
+#pragma warning(disable : 4302)
+#pragma warning(disable : 4244)
+#pragma warning(disable : 4267)
+#pragma warning(disable : 4996)
+#pragma warning(disable : 4477)
+
 using namespace Raptor::r86;
+
+// Wrapper, with exit condition
+#define _CheckProgramLineFlags(flags, allowedFlags, operand1, operand2, operand1Val, operand2Val) \
+	CheckProgramLineFlags(flags, allowedFlags, operand1, operand2, operand1Val, operand2Val); \
+	if (m_ProcessorState->ps_Halt) break;
 
 namespace Raptor
 {
@@ -22,7 +35,6 @@ namespace Raptor
 			vm->m_Registers->ClearAllRegisters();
 			vm->m_Registers->ClearAllFlags();
 
-			vm->m_OpcodeCounter = 0;
 			vm->m_Registers->r_InstructionPointer = 0;
 
 			return 1;
@@ -48,9 +60,6 @@ VirtualMachine::VirtualMachine( HeapMemorySizes::HeapMemorySize heapSize )
 
 	m_CurrentProgram = 0;
 	m_DeleteProgram = false;
-
-	memset( m_OpcodeJumpTable, 0xffff-1, 0xffff );
-	m_OpcodeCounter = 0;
 
 	m_VMThread = 0;
 	m_VMQuitEvent = CreateEvent( 0, false, false, 0 );
@@ -219,108 +228,20 @@ void VirtualMachine::DispatchLoop( void )
 	m_Registers->ClearAllRegisters();
 	m_Registers->ClearAllFlags();
 
-	// Point all of the opcodes to NOP initially to ignore invalid opcodes.
-	for ( unsigned int i = 0; i < 0xffff; i++ )
-	{
-		ADD_OPCODE( labelNOP, i );
-	}
-
-	// Add all the current instructions.
-	ADD_OPCODE( labelADD, -1 );
-	ADD_OPCODE( labelAND, -1 );
-	ADD_OPCODE( labelASYNCK, -1 );
-	ADD_OPCODE( labelCALL, -1 );
-	ADD_OPCODE( labelCMP, -1 );
-	ADD_OPCODE( labelCPRINT, -1 );
-	ADD_OPCODE( labelDEC, -1 );
-	ADD_OPCODE( labelDIV, -1 );
-	ADD_OPCODE( labelEPILOG, -1 );
-	ADD_OPCODE( labelFABS, -1 );
-	ADD_OPCODE( labelFADD, -1 );
-	ADD_OPCODE( labelFATAN, -1 );
-	ADD_OPCODE( labelFCHS, -1 );
-	ADD_OPCODE( labelFCOM, -1 );
-	ADD_OPCODE( labelFCOS, -1 );
-	ADD_OPCODE( labelFDIV, -1 );
-	ADD_OPCODE( labelFMUL, -1 );
-	ADD_OPCODE( labelFPOW, -1 );
-	ADD_OPCODE( labelFPRINT, -1 );
-	ADD_OPCODE( labelFSIN, -1 );
-	ADD_OPCODE( labelFSQRT, -1 );
-	ADD_OPCODE( labelFSUB, -1 );
-	ADD_OPCODE( labelFTAN, -1 );
-	ADD_OPCODE( labelFTOI, -1 );
-	ADD_OPCODE( labelGETCH, -1 );
-	ADD_OPCODE( labelIAND, -1 );
-	ADD_OPCODE( labelIDIV, -1 );
-	ADD_OPCODE( labelIMOD, -1 );
-	ADD_OPCODE( labelIMUL, -1 );
-	ADD_OPCODE( labelINC, -1 );
-	ADD_OPCODE( labelINT, -1 );
-	ADD_OPCODE( labelIOR, -1 );
-	ADD_OPCODE( labelIPRINT, -1 );
-	ADD_OPCODE( labelIXOR, -1 );
-	ADD_OPCODE( labelJA, -1 );
-	ADD_OPCODE( labelJAE, -1 );
-	ADD_OPCODE( labelJB, -1 );
-	ADD_OPCODE( labelJBE, -1 );
-	ADD_OPCODE( labelJE, -1 );
-	ADD_OPCODE( labelJG, -1 );
-	ADD_OPCODE( labelJGE, -1 );
-	ADD_OPCODE( labelJL, -1 );
-	ADD_OPCODE( labelJLE, -1 );
-	ADD_OPCODE( labelJMP, -1 );
-	ADD_OPCODE( labelJNE, -1 );
-	ADD_OPCODE( labelJNO, -1 );
-	ADD_OPCODE( labelJNS, -1 );
-	ADD_OPCODE( labelJO, -1 );
-	ADD_OPCODE( labelJS, -1 );
-	ADD_OPCODE( labelJZ, -1 );
-	ADD_OPCODE( labelLEA, -1 );
-	ADD_OPCODE( labelMOD, -1 );
-	ADD_OPCODE( labelMOV, -1 );
-	ADD_OPCODE( labelMUL, -1 );
-	ADD_OPCODE( labelNEG, -1 );
-	ADD_OPCODE( labelNOP, -1 );
-	ADD_OPCODE( labelNOT, -1 );
-	ADD_OPCODE( labelOR, -1 );
-	ADD_OPCODE( labelPOP, -1 );
-	ADD_OPCODE( labelPROLOG, -1 );
-	ADD_OPCODE( labelPUSH, -1 );
-	ADD_OPCODE( labelRCLR, -1 );
-	ADD_OPCODE( labelRET, -1 );
-	ADD_OPCODE( labelRGET, -1 );
-	ADD_OPCODE( labelRPLOT, -1 );
-	ADD_OPCODE( labelRPOS, -1 );
-	ADD_OPCODE( labelSAL, -1 );
-	ADD_OPCODE( labelSAR, -1 );
-	ADD_OPCODE( labelSHL, -1 );
-	ADD_OPCODE( labelSHR, -1 );
-	ADD_OPCODE( labelSIF, -1 );
-	ADD_OPCODE( labelSLEEP, -1 );
-	ADD_OPCODE( labelSUB, -1 );
-	ADD_OPCODE( labelTEST, -1 );
-	ADD_OPCODE( labelTIME, -1 );
-	ADD_OPCODE( labelUIF, -1 );
-	ADD_OPCODE( labelUPRINT, -1 );
-	ADD_OPCODE( labelXADD, -1 );
-	ADD_OPCODE( labelXCHG, -1 );
-	ADD_OPCODE( labelXOR, -1 );
-
-	ADD_OPCODE( labelEND, 0xffff - 1 );
-
 	// Temporary vars.
 	unsigned int resultUI;
 	float resultF;
-	void* opcodeLabel;
+	uint8_t opcode = Instructions::ASM_NOP;
 
 	// Crude way of counting instructions.
 	int instructionCount = 0;
 	int insSec = 0;
 
 	unsigned int lClock = clock();
-
 	unsigned int bp = 0;
+
+	// Variables that are constantly used
+	unsigned int intValue = 0;
 
 	READ_NEXT;
 
@@ -343,42 +264,40 @@ labelBEGIN:
 	{
 		if ( m_StopRequested > 0 && WaitForSingleObject( m_VMQuitEvent, 0 ) == WAIT_OBJECT_0 )  
 		{															  
-			goto labelEND;											  
+			opcode = Instructions::END;											  
 		}															  
 
 		Sleep( 1 );
 		instructionCount = 0;
 	}
 
-	_asm { jmp opcodeLabel }; 		
-
-	// Function table. See DOCUMENTATION for what these do.
-	while ( 1 )
+	// All instructions in a switch statement
+	switch ( opcode )
 	{
-	labelADD:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );		
+	case Instructions::ASM_ADD:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );		
 
 		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr + *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
 		READ_NEXT;
 
-	labelAND:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_AND:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = ( *(unsigned int*) m_ProcessorState->ps_Operand1Ptr ) & ( *(unsigned int*) m_ProcessorState->ps_Operand2Ptr );
 		READ_NEXT;
 
-	labelCALL:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );	
+	case Instructions::ASM_CALL:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );	
 
 		m_Stack->Push( &m_Registers->r_InstructionPointer );
 		m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr;
 
 		READ_NEXT;
 
-	labelCMP:
+	case Instructions::ASM_CMP:
 		m_Registers->ClearAllFlags();
 
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x3FF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x3FF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		resultUI = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr - *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
 
@@ -391,46 +310,46 @@ labelBEGIN:
 
 		READ_NEXT;
 	
-	labelDEC:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );	
+	case Instructions::ASM_DEC:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );	
 
 		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr - 1;
 		READ_NEXT;
 	
-	labelDIV:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_DIV:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr / *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
 		READ_NEXT;
 	
-	labelFABS:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_FABS:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		if ( *(float*) m_ProcessorState->ps_Operand1Ptr < 0 ) *(float*) m_ProcessorState->ps_Operand1Ptr = -*(float*) m_ProcessorState->ps_Operand1Ptr;
 		READ_NEXT;
 	
-	labelFADD:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x83F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_FADD:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x83F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(float*) m_ProcessorState->ps_Operand1Ptr = *(float*) m_ProcessorState->ps_Operand1Ptr + *(float*) m_ProcessorState->ps_Operand2Ptr;
 		READ_NEXT;
 	
-	labelFATAN:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_FATAN:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(float*) m_ProcessorState->ps_Operand1Ptr = atanf( *(float*) m_ProcessorState->ps_Operand1Ptr );
 		READ_NEXT;
 	
-	labelFCHS:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_FCHS:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(float*) m_ProcessorState->ps_Operand1Ptr = -*(float*) m_ProcessorState->ps_Operand1Ptr;
 		READ_NEXT;
 	
-	labelFCOM:
+	case Instructions::ASM_FCOM:
 		m_Registers->ClearAllFlags();
 
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xC3F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xC3F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		resultF = *(float*) m_ProcessorState->ps_Operand1Ptr - *(float*) m_ProcessorState->ps_Operand2Ptr;
 
@@ -443,102 +362,102 @@ labelBEGIN:
 
 		READ_NEXT;
 
-	labelFCOS:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_FCOS:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(float*) m_ProcessorState->ps_Operand1Ptr = cosf( *(float*) m_ProcessorState->ps_Operand1Ptr );
 
 		READ_NEXT;
 	
-	labelFDIV:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x83F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_FDIV:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x83F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(float*) m_ProcessorState->ps_Operand1Ptr = *(float*) m_ProcessorState->ps_Operand1Ptr / *(float*) m_ProcessorState->ps_Operand2Ptr;
 
 		READ_NEXT;
 	
-	labelFMUL:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x83F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_FMUL:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x83F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(float*) m_ProcessorState->ps_Operand1Ptr = *(float*) m_ProcessorState->ps_Operand1Ptr * *(float*) m_ProcessorState->ps_Operand2Ptr;
 
 		READ_NEXT;
 	
-	labelFPOW:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x83F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_FPOW:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x83F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 
 		*(float*) m_ProcessorState->ps_Operand1Ptr = powf( *(float*) m_ProcessorState->ps_Operand1Ptr, *(float*) m_ProcessorState->ps_Operand2Ptr );
 		READ_NEXT;
 	
-	labelFSIN:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_FSIN:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(float*) m_ProcessorState->ps_Operand1Ptr = sinf( *(float*) m_ProcessorState->ps_Operand1Ptr );
 
 		READ_NEXT;
 	
-	labelFSQRT:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_FSQRT:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(float*) m_ProcessorState->ps_Operand1Ptr = sqrtf( *(float*) m_ProcessorState->ps_Operand1Ptr );
 
 		READ_NEXT;
 	
-	labelFSUB:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x83F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_FSUB:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x83F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(float*) m_ProcessorState->ps_Operand1Ptr = *(float*) m_ProcessorState->ps_Operand1Ptr - *(float*) m_ProcessorState->ps_Operand2Ptr;
 
 		READ_NEXT;
 	
-	labelFTAN:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_FTAN:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(float*) m_ProcessorState->ps_Operand1Ptr = tanf( *(float*) m_ProcessorState->ps_Operand1Ptr );
 
 		READ_NEXT;
 	
-	labelFTOI:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_FTOI:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(int*) m_ProcessorState->ps_Operand1Ptr = (int) ( *(float*) m_ProcessorState->ps_Operand1Ptr );
 
 		READ_NEXT;
 
-	labelIAND:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_IAND:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(int*) m_ProcessorState->ps_Operand1Ptr = ( *(int*) m_ProcessorState->ps_Operand1Ptr ) & ( *(int*) m_ProcessorState->ps_Operand2Ptr );
 		READ_NEXT;
 
-	labelIDIV:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_IDIV:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(int*) m_ProcessorState->ps_Operand1Ptr = ( *(int*) m_ProcessorState->ps_Operand1Ptr ) / ( *(int*) m_ProcessorState->ps_Operand2Ptr );
 		READ_NEXT;
 
-	labelIMOD:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_IMOD:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(int*) m_ProcessorState->ps_Operand1Ptr = ( *(int*) m_ProcessorState->ps_Operand1Ptr ) % ( *(int*) m_ProcessorState->ps_Operand2Ptr );
 		READ_NEXT;
 
-	labelIMUL:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_IMUL:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(int*) m_ProcessorState->ps_Operand1Ptr = ( *(int*) m_ProcessorState->ps_Operand1Ptr ) * ( *(int*) m_ProcessorState->ps_Operand2Ptr );
 		READ_NEXT;
 
-	labelINC:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_INC:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = ( *(unsigned int*) m_ProcessorState->ps_Operand1Ptr ) + 1;
 		READ_NEXT;
 
-	labelINT:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_INT:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
-		unsigned int intValue = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr;
+		intValue = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr;
 
 		if ( intValue < 256 )
 		{
@@ -550,165 +469,172 @@ labelBEGIN:
 
 		READ_NEXT;
 
-	labelIOR:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_IOR:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(int*) m_ProcessorState->ps_Operand1Ptr = ( *(int*) m_ProcessorState->ps_Operand1Ptr ) | ( *(int*) m_ProcessorState->ps_Operand2Ptr );
 		READ_NEXT;
 
-	labelIXOR:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_IXOR:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(int*) m_ProcessorState->ps_Operand1Ptr = ( *(int*) m_ProcessorState->ps_Operand1Ptr ) ^ ( *(int*) m_ProcessorState->ps_Operand2Ptr );
 		READ_NEXT;
 
-	labelJA:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_JA:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		if ( *m_Registers->r_FlagCF == 0 && *m_Registers->r_FlagZF == 0 ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
 		READ_NEXT;
 
-	labelJAE:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_JAE:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		if ( *m_Registers->r_FlagCF == 0 ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
 		READ_NEXT;
 
-	labelJB:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_JB:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		if ( *m_Registers->r_FlagCF == 1 ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
 		READ_NEXT;
 
-	labelJBE:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_JBE:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		if ( *m_Registers->r_FlagCF == 1 || *m_Registers->r_FlagZF == 1 ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
 		READ_NEXT;
 
-	labelJE:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_JE:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		if ( *m_Registers->r_FlagZF == 1 ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
 		READ_NEXT; 
 
-	labelJG:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_JG:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		if ( *m_Registers->r_FlagZF == 0 && *m_Registers->r_FlagSF == *m_Registers->r_FlagOF ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
 		READ_NEXT;
 
-	labelJGE:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_JGE:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		if ( *m_Registers->r_FlagSF == *m_Registers->r_FlagOF ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
 		READ_NEXT;
 
-	labelJL:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_JL:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		if ( *m_Registers->r_FlagSF != *m_Registers->r_FlagOF ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
 		READ_NEXT;
 
-	labelJLE:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_JLE:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		if ( *m_Registers->r_FlagZF == 0 || *m_Registers->r_FlagSF != *m_Registers->r_FlagOF ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
 		READ_NEXT;
 
-	labelJMP:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_JMP:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
 		READ_NEXT;
 
-	labelJNE:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_JNE:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		if ( *m_Registers->r_FlagZF == 0 ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
 		READ_NEXT;
 
-	labelJNO:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_JNO:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		if ( *m_Registers->r_FlagOF == 0 ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
 		READ_NEXT;
 
-	labelJNS:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_JNS:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		if ( *m_Registers->r_FlagSF == 0 ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
 		READ_NEXT;
 
-	labelJO:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_JO:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		if ( *m_Registers->r_FlagOF == 1 ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
 		READ_NEXT;
 
-	labelJS:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_JS:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		if ( *m_Registers->r_FlagSF == 1 ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
 		READ_NEXT;
 
-	labelJZ:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_JZ:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		if ( *m_Registers->r_FlagZF == 1 ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
 		READ_NEXT;
 
-	labelLEA:
+	case Instructions::ASM_LEA:
 		// Not yet implemented.
 		READ_NEXT;
 
-	labelMOD:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_LGA:
+		_CheckProgramLineFlags(m_ProcessorState->ps_ProgramLineFlags, 0x35, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2);
+		
+		*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = m_ProcessorState->ps_Operand2 + m_HeapInfo->hi_StaticHeapSectionOffset;
+		READ_NEXT;
+
+	case Instructions::ASM_MOD:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = ( *(unsigned int*) m_ProcessorState->ps_Operand1Ptr ) % ( *(unsigned int*) m_ProcessorState->ps_Operand2Ptr );
 		READ_NEXT;
 
-	labelMOV:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xABF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_MOV:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xABF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
 
 		READ_NEXT;
 
-	labelMUL:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_MUL:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr * *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
 		READ_NEXT;
 
-	labelNEG:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_NEG:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = ( *(unsigned int*) m_ProcessorState->ps_Operand1Ptr ) * -1;
 		READ_NEXT;
 
-	labelNOP:
-		_asm{ nop };
+	default:
+	case Instructions::ASM_NOP:
+		Sleep(0);
 		READ_NEXT;
 
-	labelNOT:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_NOT:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = ~( *(unsigned int*) m_ProcessorState->ps_Operand1Ptr );
 		READ_NEXT;
 
-	labelOR:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_OR:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr | *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
 		READ_NEXT;
 
-	labelPOP:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_POP:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		m_Stack->Pop( (unsigned int*) m_ProcessorState->ps_Operand1Ptr );
 
 		READ_NEXT;
 
-	labelPUSH:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x555, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_PUSH:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x555, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		m_Stack->Push( (unsigned int*) m_ProcessorState->ps_Operand1Ptr );
 
 		READ_NEXT;
 
-	labelRET:
-		//CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x00, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_RET:
+		//_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x00, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		m_Stack->Pop( &m_Registers->r_InstructionPointer );
 		READ_NEXT;
 
-	labelRGET:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );	
+	case Instructions::ASM_RGET:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );	
 
 		if ( m_GetPixelFunction != 0 )
 		{
@@ -722,8 +648,8 @@ labelBEGIN:
 
 		READ_NEXT;
 
-	labelRPLOT:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x55, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_RPLOT:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x55, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		if ( m_PlotPixelFunction != 0 )
 		{
@@ -732,54 +658,54 @@ labelBEGIN:
 
 		READ_NEXT;
 
-	labelRPOS:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x33F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_RPOS:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x33F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		m_Registers->r_RPosX = *(int*) m_ProcessorState->ps_Operand1Ptr;
 		m_Registers->r_RPosY = *(int*) m_ProcessorState->ps_Operand2Ptr;
 
 		READ_NEXT;
 
-	labelSAL:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_SAL:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(int*) m_ProcessorState->ps_Operand1Ptr = ( *(int*) m_ProcessorState->ps_Operand1Ptr ) << ( *(int*) m_ProcessorState->ps_Operand2Ptr );
 		READ_NEXT;
 
-	labelSAR:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_SAR:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(int*) m_ProcessorState->ps_Operand1Ptr = ( *(int*) m_ProcessorState->ps_Operand1Ptr ) >> ( *(int*) m_ProcessorState->ps_Operand2Ptr );
 		READ_NEXT;
 
-	labelSHL:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_SHL:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr << *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
 		READ_NEXT;
 
-	labelSHR:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_SHR:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr >> *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
 		READ_NEXT;
 
-	labelSIF:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_SIF:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(float*) m_ProcessorState->ps_Operand1Ptr = (float) *(int*) m_ProcessorState->ps_Operand1Ptr;
 		READ_NEXT;
 
-	labelSUB:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_SUB:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr - *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
 		READ_NEXT;
 
-	labelTEST:
+	case Instructions::ASM_TEST:
 		m_Registers->ClearAllFlags();
 
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x3FF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x3FF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		resultUI = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr & *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
 
@@ -792,14 +718,14 @@ labelBEGIN:
 
 		READ_NEXT;
 
-	labelUIF:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_UIF:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(float*) m_ProcessorState->ps_Operand1Ptr = (float) *(unsigned int*) m_ProcessorState->ps_Operand1Ptr;
 		READ_NEXT;
 
-	labelXADD:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x3F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_XADD:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x3F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		m_ProcessorState->ps_UIOperand1 = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr;
 		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr + *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
@@ -807,8 +733,8 @@ labelBEGIN:
 
 		READ_NEXT;
 
-	labelXCHG:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x3F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_XCHG:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x3F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		m_ProcessorState->ps_UIOperand1 = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr;
 		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
@@ -816,14 +742,14 @@ labelBEGIN:
 
 		READ_NEXT;
 
-	labelXOR:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_XOR:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr ^ *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
 		READ_NEXT;
 
-	labelASYNCK:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x55, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_ASYNCK:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x55, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		m_Registers->ClearAllFlags();
 
@@ -834,51 +760,51 @@ labelBEGIN:
 
 		READ_NEXT;
 
-	labelGETCH:
+	case Instructions::ASM_GETCH:
 		// Not yet implemented
 		READ_NEXT;
 
-	labelTIME:
+	case Instructions::ASM_TIME:
 		// Not yet implemented
 		READ_NEXT;
 
-	labelSLEEP:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x55, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_SLEEP:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x55, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		Sleep( *(unsigned int*) m_ProcessorState->ps_Operand1Ptr );
 
 		READ_NEXT;
 
-	labelUPRINT:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x55, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_UPRINT:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x55, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 			
 		R86_PRINT( "%u\n", *(unsigned int*) m_ProcessorState->ps_Operand1Ptr );
 
 		READ_NEXT;
 
-	labelFPRINT:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x415, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_FPRINT:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x415, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		R86_PRINT( "%f\n", *(float*) m_ProcessorState->ps_Operand1Ptr );
 
 		READ_NEXT;
 
-	labelIPRINT:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x115, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_IPRINT:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x115, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		R86_PRINT( "%d\n", *(int*) m_ProcessorState->ps_Operand1Ptr );
 	
 		READ_NEXT;
 
-	labelCPRINT:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x115, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_CPRINT:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x115, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		R86_PRINT( "%c", *(char*) m_ProcessorState->ps_Operand1Ptr );
 	
 		READ_NEXT;
 
-	labelPROLOG:
-		//CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x0, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_PROLOG:
+		//_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x0, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		bp = *m_Registers->r_BasePointer;
 
@@ -887,8 +813,8 @@ labelBEGIN:
 
 		READ_NEXT;
 
-	labelEPILOG:
-		//CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x0, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_EPILOG:
+		//_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x0, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		bp = *m_Registers->r_BasePointer;
 
@@ -897,8 +823,8 @@ labelBEGIN:
 	
 		READ_NEXT;
 
-	labelRCLR:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 64, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
+	case Instructions::ASM_RCLR:
+		_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 64, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
 		
 		if ( m_ScreenClearFunction != 0 )
 		{
@@ -906,9 +832,10 @@ labelBEGIN:
 		}
 	
 		READ_NEXT;
-	}
 
-	labelEND:
+	case Instructions::END:
+		break;
+	}
 
 	return;
 }
@@ -918,7 +845,7 @@ void VirtualMachine::ReadProgram( void )
 {
 	if ( m_Registers->r_InstructionPointer > m_CurrentProgram->p_NumberOfInstructions )
 	{
-		m_ProcessorState->ps_ProgramLineOpcode = 0xffff - 1;
+		m_ProcessorState->ps_ProgramLineOpcode = UINT8_MAX;
 		return;
 	}
 
@@ -954,7 +881,7 @@ void VirtualMachine::CheckRegister( unsigned int regNum )
 
 		m_Registers->r_InstructionPointer = m_CurrentProgram->p_NumberOfInstructions - 1;
 	}
-}
+}	
 
 // Checks the flags of the program line and make the operand pointers point to the right location in memory.
 void VirtualMachine::CheckProgramLineFlags( unsigned short flags, unsigned short allowedFlags, void*& operand1, void*& operand2, unsigned int operand1Val, unsigned int operand2Val )
@@ -986,7 +913,7 @@ void VirtualMachine::CheckProgramLineFlags( unsigned short flags, unsigned short
 		if ( !( flags & ProgramLineFlags::plf_RawRegisterFlagOp1 ) & allowedFlags )
 		{
 			operand1 = &m_Registers->r_GeneralRegisters[ operand1Val ];
-			//CheckRegister( operand1Val );
+			CheckRegister( operand1Val );
 		}
 
 		if ( ( flags & ProgramLineFlags::OPERAND1_DEREFERENCE_REGISTER ) & allowedFlags )
