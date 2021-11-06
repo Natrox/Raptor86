@@ -38,11 +38,13 @@ void SwitchToBufferedRendering( VirtualMachine* vm )
 
 void DrawBuffer( VirtualMachine* vm )
 {
+	EnterCriticalSection(&g_CSec);
 	SDL_UpdateTexture( texture, NULL, g_PixelBuffer, 640 * sizeof ( unsigned int ) );
 
 	SDL_RenderClear( renderer );
 	SDL_RenderCopy( renderer, texture, NULL, NULL );
 	SDL_RenderPresent( renderer );
+	LeaveCriticalSection(&g_CSec);
 }
 
 void PlotPixelToBuffer( unsigned int px, int x, int y )
@@ -52,7 +54,10 @@ void PlotPixelToBuffer( unsigned int px, int x, int y )
 
 void PlotPixel( unsigned int px, int x, int y )
 {
+#if 0
 	if ( g_BufferedRendering )
+#endif
+	//if (x > 0 && y > 0)
 	{
 		PlotPixelToBuffer( px, x*2, y*2 );
 		PlotPixelToBuffer( px, x*2+1, y*2 );
@@ -62,6 +67,7 @@ void PlotPixel( unsigned int px, int x, int y )
 		return;						 
 	}
 
+#if 0
 	EnterCriticalSection( &g_CSec );
 
 	static SDL_Rect dstRect;
@@ -76,23 +82,13 @@ void PlotPixel( unsigned int px, int x, int y )
 	SDL_RenderFillRect( renderer, &dstRect );
 
 	LeaveCriticalSection( &g_CSec );
+#endif
 }
 
 void ClearScreen( unsigned int px )
 {
 	EnterCriticalSection( &g_CSec );
-
-	static SDL_Rect dstRect;
-
-	dstRect.x = 0;
-	dstRect.y = 0;
-
-	dstRect.w = 640;
-	dstRect.h = 480;
-
-	SDL_SetRenderDrawColor( renderer, ( px & 0xff0000 ) >> 16, ( px & 0xff00 ) >> 8, px & 0xff, 0xff );
-	SDL_RenderFillRect( renderer, &dstRect );
-
+	memset(g_PixelBuffer, *(int*)(&px), sizeof(unsigned int) * 640 * 480);
 	LeaveCriticalSection( &g_CSec );
 }
 
@@ -167,12 +163,8 @@ int main( void )
 			}
 		}
 
-		if ( !g_BufferedRendering )
-		{
-			EnterCriticalSection( &g_CSec );
-			SDL_RenderPresent( renderer );
-			LeaveCriticalSection( &g_CSec );
-		}
+		if (!g_BufferedRendering)
+			DrawBuffer(vm);
 
 		if ( events.key.keysym.scancode == SDL_SCANCODE_ESCAPE )
 		{

@@ -17,7 +17,7 @@ using namespace Raptor::r86;
 
 // Wrapper, with exit condition
 #define _CheckProgramLineFlags(flags, allowedFlags, operand1, operand2, operand1Val, operand2Val) \
-	CheckProgramLineFlags(flags, allowedFlags, operand1, operand2, operand1Val, operand2Val); \
+	CheckProgramLineFlags<allowedFlags>(flags, operand1, operand2, operand1Val, operand2Val); \
 	if (m_ProcessorState->ps_Halt) break;
 
 namespace Raptor
@@ -260,7 +260,11 @@ labelBEGIN:
 #endif
 
 	// Either do this if you want to sleep or if the VM has been requested to quit.
-	if ( instructionCount > INSTRUCTIONS_PER_1MS_SLEEP || m_StopRequested > 0 )
+	if ( 
+#ifdef INSTRUCTIONS_PER_1MS_SLEEP
+		instructionCount > INSTRUCTIONS_PER_1MS_SLEEP || 
+#endif
+		m_StopRequested > 0 )
 	{
 		if ( m_StopRequested > 0 && WaitForSingleObject( m_VMQuitEvent, 0 ) == WAIT_OBJECT_0 )  
 		{															  
@@ -843,7 +847,7 @@ labelBEGIN:
 // Read the next bytecode instruction and its flags.
 void VirtualMachine::ReadProgram( void )
 {
-	if ( m_Registers->r_InstructionPointer > m_CurrentProgram->p_NumberOfInstructions )
+	if ( m_Registers->r_InstructionPointer >= m_CurrentProgram->p_NumberOfInstructions )
 	{
 		m_ProcessorState->ps_ProgramLineOpcode = UINT8_MAX;
 		return;
@@ -884,7 +888,9 @@ void VirtualMachine::CheckRegister( unsigned int regNum )
 }	
 
 // Checks the flags of the program line and make the operand pointers point to the right location in memory.
-void VirtualMachine::CheckProgramLineFlags( unsigned short flags, unsigned short allowedFlags, void*& operand1, void*& operand2, unsigned int operand1Val, unsigned int operand2Val )
+// TODO: Precalc all flag combos for massive speed boost
+template <unsigned short allowedFlags>
+void VirtualMachine::CheckProgramLineFlags( unsigned short flags, void*& operand1, void*& operand2, unsigned int operand1Val, unsigned int operand2Val )
 {
 	// Check if any of the operands use a global variable and adjust the address for that.
 	if ( flags & ProgramLineFlags::OPERAND1_PROPERTY_STATIC_HEAP_SECTION )
@@ -910,7 +916,7 @@ void VirtualMachine::CheckProgramLineFlags( unsigned short flags, unsigned short
 	else
 	{
 		// Check each individual bit.
-		if ( !( flags & ProgramLineFlags::plf_RawRegisterFlagOp1 ) & allowedFlags )
+		if ( !(( flags & ProgramLineFlags::plf_RawRegisterFlagOp1 ) & allowedFlags) )
 		{
 			operand1 = &m_Registers->r_GeneralRegisters[ operand1Val ];
 			CheckRegister( operand1Val );

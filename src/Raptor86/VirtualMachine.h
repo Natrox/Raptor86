@@ -93,7 +93,9 @@ namespace Raptor
 
 			void CheckAddress( void* address );
 			void CheckRegister( unsigned int regNum );
-			void CheckProgramLineFlags( unsigned short flags, unsigned short allowedFlags, void*& operand1, void*& operand2, unsigned int operand1Val, unsigned int operand2Val );
+			
+			template <unsigned short allowedFlags>
+			void CheckProgramLineFlags( unsigned short flags, void*& operand1, void*& operand2, unsigned int operand1Val, unsigned int operand2Val );
 
 		private:
 			void ResetProcessor( void );
