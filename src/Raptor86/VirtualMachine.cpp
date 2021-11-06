@@ -316,14 +316,14 @@ labelBEGIN:
 		VARIANT_3FF(Instructions::ASM_CMP,
 			m_Registers->ClearAllFlags();
 
-		resultUI = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr - *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
+			resultUI = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr - *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
 
-		if (resultUI == 0) *m_Registers->r_FlagZF = 1;
+			if (resultUI == 0) *m_Registers->r_FlagZF = 1;
 
-		if (resultUI > *(unsigned int*)m_ProcessorState->ps_Operand1Ptr)
-		{
-			*m_Registers->r_FlagCF = 1;
-		}
+			if (resultUI > *(unsigned int*)m_ProcessorState->ps_Operand1Ptr)
+			{
+				*m_Registers->r_FlagCF = 1;
+			}
 		);
 
 		VARIANT_15(Instructions::ASM_DEC,
@@ -352,14 +352,14 @@ labelBEGIN:
 
 		VARIANT_C3F(Instructions::ASM_FCOM,
 			m_Registers->ClearAllFlags();
-		resultF = *(float*)m_ProcessorState->ps_Operand1Ptr - *(float*)m_ProcessorState->ps_Operand2Ptr;
+			resultF = *(float*)m_ProcessorState->ps_Operand1Ptr - *(float*)m_ProcessorState->ps_Operand2Ptr;
 
-		if (resultF == 0.0f) *m_Registers->r_FlagZF = 1;
+			if (resultF == 0.0f) *m_Registers->r_FlagZF = 1;
 
-		if (*(float*)m_ProcessorState->ps_Operand2Ptr >= *(float*)m_ProcessorState->ps_Operand1Ptr && resultF < 0.0f)
-		{
-			*m_Registers->r_FlagOF = 1;
-		}
+			if (*(float*)m_ProcessorState->ps_Operand2Ptr >= *(float*)m_ProcessorState->ps_Operand1Ptr && resultF < 0.0f)
+			{
+				*m_Registers->r_FlagOF = 1;
+			}
 		);
 
 		VARIANT_15(Instructions::ASM_FCOS,
@@ -424,13 +424,13 @@ labelBEGIN:
 		VARIANT_40(Instructions::ASM_INT,
 			intValue = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
 
-		if (intValue < 256)
-		{
-			if (m_InterruptTable[intValue] != 0)
+			if (intValue < 256)
 			{
-				m_InterruptTable[intValue](this);
+				if (m_InterruptTable[intValue] != 0)
+				{
+					m_InterruptTable[intValue](this);
+				}
 			}
-		}
 
 		);
 
@@ -506,66 +506,53 @@ labelBEGIN:
 			if (*m_Registers->r_FlagZF == 1) m_Registers->r_InstructionPointer = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
 		);
 
-	case Instructions::ASM_LEA:
+		case Instructions::ASM_LEA:
 		// Not yet implemented.
 		READ_NEXT;
 
 		VARIANT_35(Instructions::ASM_LGA,
-
 			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = m_ProcessorState->ps_Operand2 + m_HeapInfo->hi_StaticHeapSectionOffset;
 		);
 
 		VARIANT_BF(Instructions::ASM_MOD,
-
 			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = (*(unsigned int*)m_ProcessorState->ps_Operand1Ptr) % (*(unsigned int*)m_ProcessorState->ps_Operand2Ptr);
 		);
 
 		VARIANT_ABF(Instructions::ASM_MOV,
-
 			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
 
 		);
 
 		VARIANT_BF(Instructions::ASM_MUL,
-
 			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr * *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
 		);
 
 		VARIANT_15(Instructions::ASM_NEG,
-
 			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = (*(unsigned int*)m_ProcessorState->ps_Operand1Ptr) * -1;
 		);
 
-	case Instructions::ASM_NOP:
-		Sleep(0);
+		case Instructions::ASM_NOP:
+			Sleep(0);
 		READ_NEXT;
 
 		VARIANT_15(Instructions::ASM_NOT,
-
 			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = ~(*(unsigned int*)m_ProcessorState->ps_Operand1Ptr);
 		);
 
 		VARIANT_BF(Instructions::ASM_OR,
-
 			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr | *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
 		);
 
 		VARIANT_15(Instructions::ASM_POP,
-
 			m_Stack->Pop((unsigned int*)m_ProcessorState->ps_Operand1Ptr);
-
 		);
 
 		VARIANT_555(Instructions::ASM_PUSH,
-
 			m_Stack->Push((unsigned int*)m_ProcessorState->ps_Operand1Ptr);
-
 		);
 
-	case Instructions::ASM_RET:
-		//_CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x00, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-
-		m_Stack->Pop(&m_Registers->r_InstructionPointer);
+		case Instructions::ASM_RET:
+			m_Stack->Pop(&m_Registers->r_InstructionPointer);
 		READ_NEXT;
 
 		VARIANT_15(Instructions::ASM_RGET,
@@ -592,24 +579,19 @@ labelBEGIN:
 		);
 
 		VARIANT_33F(Instructions::ASM_RPOS,
-
 			m_Registers->r_RPosX = *(int*)m_ProcessorState->ps_Operand1Ptr;
-		m_Registers->r_RPosY = *(int*)m_ProcessorState->ps_Operand2Ptr;
-
+			m_Registers->r_RPosY = *(int*)m_ProcessorState->ps_Operand2Ptr;
 		);
 
 		VARIANT_23F(Instructions::ASM_SAL,
-
 			*(int*)m_ProcessorState->ps_Operand1Ptr = (*(int*)m_ProcessorState->ps_Operand1Ptr) << (*(int*)m_ProcessorState->ps_Operand2Ptr);
 		);
 
 		VARIANT_23F(Instructions::ASM_SAR,
-
 			*(int*)m_ProcessorState->ps_Operand1Ptr = (*(int*)m_ProcessorState->ps_Operand1Ptr) >> (*(int*)m_ProcessorState->ps_Operand2Ptr);
 		);
 
 		VARIANT_BF(Instructions::ASM_SHL,
-
 			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr << *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
 		);
 
@@ -619,47 +601,44 @@ labelBEGIN:
 		);
 
 		VARIANT_15(Instructions::ASM_SIF,
-
 			*(float*)m_ProcessorState->ps_Operand1Ptr = (float)*(int*)m_ProcessorState->ps_Operand1Ptr;
 		);
 
 		VARIANT_BF(Instructions::ASM_SUB,
-
 			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr - *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
 		);
 
 		VARIANT_3FF(Instructions::ASM_TEST,
 			m_Registers->ClearAllFlags();
 
-		resultUI = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr & *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
+			resultUI = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr & *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
 
-		if (resultUI == 0) *m_Registers->r_FlagZF = 1;
+			if (resultUI == 0) *m_Registers->r_FlagZF = 1;
 
-		if (resultUI & (1 << 31))
-		{
-			*m_Registers->r_FlagSF = 1;
-		}
+			if (resultUI & (1 << 31))
+			{
+				*m_Registers->r_FlagSF = 1;
+			}
 
 		);
 
 		VARIANT_15(Instructions::ASM_UIF,
-
 			*(float*)m_ProcessorState->ps_Operand1Ptr = (float)*(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
 		);
 
 		VARIANT_3F(Instructions::ASM_XADD,
 
 			m_ProcessorState->ps_UIOperand1 = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
-		*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr + *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
-		*(unsigned int*)m_ProcessorState->ps_Operand2Ptr = m_ProcessorState->ps_UIOperand1;
+			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr + *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
+			*(unsigned int*)m_ProcessorState->ps_Operand2Ptr = m_ProcessorState->ps_UIOperand1;
 
 		);
 
 		VARIANT_3F(Instructions::ASM_XCHG,
 
 			m_ProcessorState->ps_UIOperand1 = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
-		*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
-		*(unsigned int*)m_ProcessorState->ps_Operand2Ptr = m_ProcessorState->ps_UIOperand1;
+			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
+			*(unsigned int*)m_ProcessorState->ps_Operand2Ptr = m_ProcessorState->ps_UIOperand1;
 
 		);
 
@@ -672,64 +651,54 @@ labelBEGIN:
 
 			m_Registers->ClearAllFlags();
 
-		if (m_CheckKeyFunction != 0 && m_CheckKeyFunction((int)*(unsigned int*)m_ProcessorState->ps_Operand1Ptr))
-		{
-			*m_Registers->r_FlagZF = 1;
-		}
+			if (m_CheckKeyFunction != 0 && m_CheckKeyFunction((int)*(unsigned int*)m_ProcessorState->ps_Operand1Ptr))
+			{
+				*m_Registers->r_FlagZF = 1;
+			}
 
 		);
 
-	case Instructions::ASM_GETCH:
+		case Instructions::ASM_GETCH:
 		// Not yet implemented
 		READ_NEXT;
 
-	case Instructions::ASM_TIME:
+		case Instructions::ASM_TIME:
 		// Not yet implemented
 		READ_NEXT;
 
 		VARIANT_55(Instructions::ASM_SLEEP,
-
 			Sleep(*(unsigned int*)m_ProcessorState->ps_Operand1Ptr);
-
 		);
 
 		VARIANT_55(Instructions::ASM_UPRINT,
-
 			R86_PRINT("%u\n", *(unsigned int*)m_ProcessorState->ps_Operand1Ptr);
-
 		);
 
 		VARIANT_415(Instructions::ASM_FPRINT,
-
 			R86_PRINT("%f\n", *(float*)m_ProcessorState->ps_Operand1Ptr);
-
 		);
 
 		VARIANT_115(Instructions::ASM_IPRINT,
-
 			R86_PRINT("%d\n", *(int*)m_ProcessorState->ps_Operand1Ptr);
-
 		);
 
 		VARIANT_115(Instructions::ASM_CPRINT,
-
 			R86_PRINT("%c", *(char*)m_ProcessorState->ps_Operand1Ptr);
-
 		);
 
-	case Instructions::ASM_PROLOG:
-		bp = *m_Registers->r_BasePointer;
+		case Instructions::ASM_PROLOG:
+			bp = *m_Registers->r_BasePointer;
 
-		*m_Registers->r_BasePointer = *m_Registers->r_StackPointer;
-		m_Stack->Push(&bp);
+			*m_Registers->r_BasePointer = *m_Registers->r_StackPointer;
+			m_Stack->Push(&bp);
 
 		READ_NEXT;
 
-	case Instructions::ASM_EPILOG:
-		bp = *m_Registers->r_BasePointer;
+		case Instructions::ASM_EPILOG:
+			bp = *m_Registers->r_BasePointer;
 
-		m_Stack->Pop(m_Registers->r_BasePointer);
-		*m_Registers->r_StackPointer = bp;
+			m_Stack->Pop(m_Registers->r_BasePointer);
+			*m_Registers->r_StackPointer = bp;
 
 		READ_NEXT;
 
