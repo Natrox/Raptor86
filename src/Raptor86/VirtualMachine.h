@@ -19,8 +19,8 @@
 // This is a define that performs the required steps to go to the next
 // instruction in the bytecode program.
 #define READ_NEXT \
-	ReadProgram();												  \
-	opcode = m_ProcessorState->ps_ProgramLineOpcode; \
+	ReadProgram();														\
+	opcode = m_ProcessorState->ps_ProgramLineOpcode;					\
 	goto labelBEGIN;							 
 
 // Type defines for various function pointers.
@@ -94,8 +94,11 @@ namespace Raptor
 			void CheckAddress( void* address );
 			void CheckRegister( unsigned int regNum );
 			
-			template <unsigned short allowedFlags>
-			void CheckProgramLineFlags( unsigned short flags, void*& operand1, void*& operand2, unsigned int operand1Val, unsigned int operand2Val );
+			template <const FlagsType allowedFlags, const FlagsType flags>
+			inline void CheckProgramLineFlags( void*& operand1, void*& operand2, unsigned int operand1Val, unsigned int operand2Val );
+
+			template <const FlagsType allowedFlags>
+			inline void CheckProgramLineFlags(const FlagsType flags, void*& operand1, void*& operand2, unsigned int operand1Val, unsigned int operand2Val);
 
 		private:
 			void ResetProcessor( void );

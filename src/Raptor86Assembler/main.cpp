@@ -42,7 +42,7 @@ int main( int argc, char *argv[] )
 		g_ProgramLines.push_back( pl );
 
 		for ( unsigned int i = 0; i < g_UnboundLabel.size(); i++ )
-			g_UnboundLabel[i]->li_Line = g_ProgramLines.size() - 1;
+			g_UnboundLabel[i]->li_Line = unsigned int(g_ProgramLines.size() - 1);
 	}
 
 	for ( unsigned int i = 0; i < g_ProgramLines.size(); i++ )
@@ -77,7 +77,7 @@ int main( int argc, char *argv[] )
 	unsigned int heapSize = 0;
 
 	for (std::map< std::string, GlobalVar* >::iterator it = g_GlobalVarMap.begin(); it != g_GlobalVarMap.end(); it++)
-		heapSize += it->second->gv_Size;
+		heapSize += unsigned int(it->second->gv_Size);
 
 	unsigned char* heapSection = 0;
 
@@ -103,14 +103,14 @@ int main( int argc, char *argv[] )
 	if ( heapSize > 0 ) 
 		fwrite( heapSection, heapSize, 1, out );
 
-	unsigned int numInstructions = g_ProgramLines.size();
+	unsigned int numInstructions = unsigned int(g_ProgramLines.size());
 
 	fwrite( &numInstructions, sizeof( unsigned int ), 1, out );
 
 	for ( unsigned int i = 0; i < g_ProgramLines.size(); i++ )
 	{
-		fwrite( &g_ProgramLines[i].pl_Opcode, sizeof( unsigned short ), 1, out );
-		fwrite( &g_ProgramLines[i].pl_Flags, sizeof( unsigned int ), 1, out );
+		fwrite( &g_ProgramLines[i].pl_Opcode, sizeof( uint8_t ), 1, out );
+		fwrite( &g_ProgramLines[i].pl_Flags, sizeof( uint16_t ), 1, out );
 		fwrite( &g_ProgramLines[i].pl_Operand1, sizeof( unsigned int ), 1, out );
 		fwrite( &g_ProgramLines[i].pl_Operand2, sizeof( unsigned int ), 1, out );
 	}

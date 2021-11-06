@@ -9,13 +9,16 @@ namespace Raptor
 {
 	namespace r86
 	{
+		typedef uint8_t OpcodeType;
+		typedef uint16_t FlagsType;
+
 		// Struct packing is enabled because of future plans to output the programs.
 		// Feel free to comment these out if you're worried about cache performance.	
 		#pragma pack(push, 1)
-
 		struct ProgramLine
 		{
-			ProgramLine( unsigned int dbgLineNo, unsigned short opcode, unsigned int flags, unsigned int operand1, unsigned int operand2 )
+			
+			ProgramLine( unsigned int dbgLineNo, OpcodeType opcode, FlagsType flags, unsigned int operand1, unsigned int operand2 )
 				:
 			pl_DebugLineNumber( dbgLineNo ),
 			pl_Opcode( opcode ),
@@ -28,13 +31,24 @@ namespace Raptor
 			unsigned int pl_DebugLineNumber;
 
 			// All the data required for a program line to execute.
-			unsigned short pl_Opcode;
-			unsigned int pl_Flags;
+			union
+			{
+				struct
+				{
+					OpcodeType pl_Opcode;
+					FlagsType pl_Flags;
+				};
+
+				struct
+				{
+					uint32_t pl_OpcodeAndFlags : 24;
+				};
+			};
+
 			unsigned int pl_Operand1;
 			unsigned int pl_Operand2;
 		};
-
-		#pragma pack(pop)
+		#pragma pack(pop, 1)
 
 		namespace ProgramLineFlags
 		{
@@ -61,11 +75,11 @@ namespace Raptor
 
 			// Flag combinations used to determine if checking the heap or registers is needed.
 			// Registers are not checked at run-time at this moment, for performance reasons.
-			static const unsigned int plf_RawRegisterFlagOp1 = 0x555;
-			static const unsigned int plf_RawRegisterFlagOp2 = 0xAAA;
+			static const FlagsType plf_RawRegisterFlagOp1 = 0x555;
+			static const FlagsType plf_RawRegisterFlagOp2 = 0xAAA;
 					  	
-			static const unsigned int plf_HeapCheckFlagsOp1 = 0x14;
-			static const unsigned int plf_HeapCheckFlagsOp2 = 0x28;
+			static const FlagsType plf_HeapCheckFlagsOp1 = 0x14;
+			static const FlagsType plf_HeapCheckFlagsOp2 = 0x28;
 		};
 
 		struct Program
@@ -77,6 +91,12 @@ namespace Raptor
 
 				FILE* file;
 				fopen_s( &file, fileNameR86, "rb" );
+
+				if (file == nullptr)
+				{
+					p_Halt = true;
+					return;
+				}
 
 				// Read the heap section size and also read the heap section itself.
 				// The heap section is a piece of memory reserved for global variables (for the assembler).
@@ -120,12 +140,20 @@ namespace Raptor
 
 				p_ProgramLines = (ProgramLine*) malloc( sizeof( ProgramLine ) * p_NumberOfInstructions );
 
+				if (p_ProgramLines == nullptr)
+				{
+					p_Halt = true;
+					return;
+				}
+
+				memset(p_ProgramLines, 0, sizeof(ProgramLine) * p_NumberOfInstructions);
+
 				for ( unsigned int i = 0; i < p_NumberOfInstructions; i++ )
 				{
-					fread( &p_ProgramLines[i].pl_Opcode, sizeof( unsigned short ), 1, file );
-					fread( &p_ProgramLines[i].pl_Flags, sizeof( unsigned int ), 1, file );
-					fread( &p_ProgramLines[i].pl_Operand1, sizeof( unsigned int ), 1, file );
-					fread( &p_ProgramLines[i].pl_Operand2, sizeof( unsigned int ), 1, file );
+					fread( &p_ProgramLines[i].pl_Opcode, sizeof( OpcodeType ), 1, file );
+					fread( &p_ProgramLines[i].pl_Flags, sizeof( FlagsType ), 1, file );
+					fread( &p_ProgramLines[i].pl_Operand1, sizeof( uint32_t ), 1, file );
+					fread( &p_ProgramLines[i].pl_Operand2, sizeof( uint32_t ), 1, file );
 				}
 
 				fclose( file );
@@ -137,7 +165,8 @@ namespace Raptor
 				:
 			p_ProgramLines( programLines ),
 			p_NumberOfInstructions( programSize ),
-			p_DeleteProgram( deleteProgramAfterEject )
+			p_DeleteProgram( deleteProgramAfterEject ),
+			p_Halt(false)
 			{}
 
 			~Program( void )

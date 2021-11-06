@@ -172,7 +172,7 @@ int main( void )
 		}
 
 		Sleep( 16 );
-	}
+ 	}
 
 	vm->StopVM();
 	delete vm;
