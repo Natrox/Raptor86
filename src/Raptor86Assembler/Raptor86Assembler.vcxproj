@@ -1,5 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="rasm.targets" />
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
@@ -15,6 +16,7 @@
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>Raptor86Assembler</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
@@ -45,12 +47,14 @@
     <TargetName>r86</TargetName>
     <OutDir>$(SolutionDir)..\assembler\</OutDir>
     <IntDir>$(ProjectDir)Intermediate\$(Configuration)\</IntDir>
+    <CustomBuildAfterTargets>Link</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <TargetName>r86</TargetName>
     <OutDir>$(SolutionDir)..\assembler\</OutDir>
     <IntDir>$(ProjectDir)Intermediate\$(Configuration)\</IntDir>
+    <CustomBuildAfterTargets>Link</CustomBuildAfterTargets>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -93,6 +97,20 @@
     <ClInclude Include="Instructions.h" />
     <ClInclude Include="LeaMath.h" />
     <ClInclude Include="Tokenizer.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <RaptorAssembly Include="Assembly\coloredbars-buffered.rasm" />
+    <RaptorAssembly Include="Assembly\coloredbars.rasm" />
+    <RaptorAssembly Include="Assembly\colorednoise.rasm" />
+    <RaptorAssembly Include="Assembly\crow-image.rasm" />
+    <RaptorAssembly Include="Assembly\mandelbrot-fixedpoint.rasm" />
+    <RaptorAssembly Include="Assembly\mandelbrot.rasm" />
+    <RaptorAssembly Include="Assembly\maze.rasm" />
+    <RaptorAssembly Include="Assembly\print-self.rasm" />
+    <RaptorAssembly Include="Assembly\proceduralgrass-nicer.rasm" />
+    <RaptorAssembly Include="Assembly\proceduralgrass.rasm" />
+    <RaptorAssembly Include="Assembly\raytracer-buffered.rasm" />
+    <RaptorAssembly Include="Assembly\raytracer.rasm" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

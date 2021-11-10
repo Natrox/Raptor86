@@ -21,6 +21,7 @@
 #define READ_NEXT \
 	ReadProgram();														\
 	opcode = m_ProcessorState->ps_ProgramLineOpcode;					\
+	insSec++;															\
 	goto labelBEGIN;							 
 
 // Type defines for various function pointers.

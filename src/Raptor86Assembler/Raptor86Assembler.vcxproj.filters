@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Assembly">
+      <UniqueIdentifier>{279d46ee-a8b2-47d8-94f0-483be8658a82}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -41,5 +44,43 @@
     <ClInclude Include="LeaMath.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <RaptorAssembly Include="Assembly\coloredbars.rasm">
+      <Filter>Assembly</Filter>
+    </RaptorAssembly>
+    <RaptorAssembly Include="Assembly\coloredbars-buffered.rasm">
+      <Filter>Assembly</Filter>
+    </RaptorAssembly>
+    <RaptorAssembly Include="Assembly\colorednoise.rasm">
+      <Filter>Assembly</Filter>
+    </RaptorAssembly>
+    <RaptorAssembly Include="Assembly\mandelbrot.rasm">
+      <Filter>Assembly</Filter>
+    </RaptorAssembly>
+    <RaptorAssembly Include="Assembly\mandelbrot-fixedpoint.rasm">
+      <Filter>Assembly</Filter>
+    </RaptorAssembly>
+    <RaptorAssembly Include="Assembly\maze.rasm">
+      <Filter>Assembly</Filter>
+    </RaptorAssembly>
+    <RaptorAssembly Include="Assembly\print-self.rasm">
+      <Filter>Assembly</Filter>
+    </RaptorAssembly>
+    <RaptorAssembly Include="Assembly\proceduralgrass.rasm">
+      <Filter>Assembly</Filter>
+    </RaptorAssembly>
+    <RaptorAssembly Include="Assembly\proceduralgrass-nicer.rasm">
+      <Filter>Assembly</Filter>
+    </RaptorAssembly>
+    <RaptorAssembly Include="Assembly\raytracer.rasm">
+      <Filter>Assembly</Filter>
+    </RaptorAssembly>
+    <RaptorAssembly Include="Assembly\raytracer-buffered.rasm">
+      <Filter>Assembly</Filter>
+    </RaptorAssembly>
+    <RaptorAssembly Include="Assembly\crow-image.rasm">
+      <Filter>Assembly</Filter>
+    </RaptorAssembly>
   </ItemGroup>
 </Project>

@@ -121,4 +121,6 @@ int main( int argc, char *argv[] )
 	
 	printf( "Done assembling.\n" );
 	getchar();
+
+	return 0;
 }

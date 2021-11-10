@@ -44,7 +44,6 @@ $sphereHit = 0;
 $colorToMul = 0;
 
 ?__start:
-	int 32
 	xor r0, r0
 
 	mov [r0], 1.5f
@@ -623,6 +622,7 @@ $colorToMul = 0;
 
 	mov $v1_x, r0
 	uif $v1_x
+	fsub $v1_x, 160.0f
 	fdiv $v1_x, 100.0f
 	mov r2, $screen_Wf
 	fdiv r2, 100.0f
@@ -634,6 +634,7 @@ $colorToMul = 0;
 	sub r3, $v1_y
 	mov $v1_y, r3
 	uif $v1_y
+	fsub $v1_y, 80.0f
 	fdiv $v1_y, 100.0f
 	mov r2, $screen_Hf
 	fdiv r2, 100.0f
@@ -657,6 +658,7 @@ $colorToMul = 0;
 ?__begin:
 	mov r0, 0
 	mov r1, 0
+	rclr 0
 
 	?__beginLoopY:
 		cmp r1, $screen_H
@@ -750,7 +752,6 @@ $colorToMul = 0;
 
 
 	?__exitLoop:
-	int 33
 	nop
 
 ?__exit:

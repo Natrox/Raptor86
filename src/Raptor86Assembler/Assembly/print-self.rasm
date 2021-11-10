@@ -1,0 +1,14 @@
+; Include myself
+$assembly = incbin "Assembly\print-self.rasm"
+$dummy = 0
+
+?_StartCode:
+	lga r1, $dummy
+	lga r0, $assembly
+	
+	?_Loop:
+		cprint [r0]
+		inc r0
+		cmp r0, r1
+		jne ?_Loop
+
