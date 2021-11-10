@@ -19,4 +19,4 @@
 //#define HEAP_CHECKS
 
 // You may change this define to limit the speed of the VM.
-#define INSTRUCTIONS_PER_1MS_SLEEP 0xFFFFFFFF
+//#define INSTRUCTIONS_PER_1MS_SLEEP 0xFFFFFFFF

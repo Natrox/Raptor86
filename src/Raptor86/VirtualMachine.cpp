@@ -5,7 +5,57 @@
 
 #include <time.h>
 
+// Disable some warnings
+#pragma warning(disable : 4311)
+#pragma warning(disable : 4302)
+#pragma warning(disable : 4244)
+#pragma warning(disable : 4267)
+#pragma warning(disable : 4996)
+#pragma warning(disable : 4477)
+
 using namespace Raptor::r86;
+
+#define STRINGIFY(a) #a
+
+// Wrapper, with exit condition
+#define _CheckProgramLineFlags(flags, allowedFlags, operand1, operand2, operand1Val, operand2Val) \
+	CheckProgramLineFlags<allowedFlags>(flags, operand1, operand2, operand1Val, operand2Val); \
+	if (m_ProcessorState->ps_Halt) break;
+
+#define _CheckProgramLineFlags2(flags, allowedFlags, operand1, operand2, operand1Val, operand2Val) \
+	CheckProgramLineFlags<allowedFlags, flags>(operand1, operand2, operand1Val, operand2Val); \
+	if (m_ProcessorState->ps_Halt) break;
+
+// Enabled cause it's faster, about 10%
+#define ENABLE_HUGE_VARIANTS 1
+
+constexpr uint32_t OpcodeFlagCombo(uint16_t opcode, uint16_t flags)
+{
+#if ENABLE_HUGE_VARIANTS
+	return opcode | (flags << 8);
+#else
+	return opcode;
+#endif 
+}
+
+#include "Variants.h"
+
+#if ENABLE_HUGE_VARIANTS
+#define VARIANT(opcode, flags, allowedFlags, content) \
+case OpcodeFlagCombo(opcode, flags): \
+	_CheckProgramLineFlags2(flags, allowedFlags, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2); \
+	content \
+	READ_NEXT
+#else
+#define VARIANT(opcode, flags, allowedFlags, content) 
+#endif
+
+#define FALLBACK(opcode, flags, allowedFlags, content) \
+case opcode: \
+	_CheckProgramLineFlags(flags, allowedFlags, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2); \
+	content \
+	READ_NEXT
+	
 
 namespace Raptor
 {
@@ -22,7 +72,6 @@ namespace Raptor
 			vm->m_Registers->ClearAllRegisters();
 			vm->m_Registers->ClearAllFlags();
 
-			vm->m_OpcodeCounter = 0;
 			vm->m_Registers->r_InstructionPointer = 0;
 
 			return 1;
@@ -48,9 +97,6 @@ VirtualMachine::VirtualMachine( HeapMemorySizes::HeapMemorySize heapSize )
 
 	m_CurrentProgram = 0;
 	m_DeleteProgram = false;
-
-	memset( m_OpcodeJumpTable, 0xffff-1, 0xffff );
-	m_OpcodeCounter = 0;
 
 	m_VMThread = 0;
 	m_VMQuitEvent = CreateEvent( 0, false, false, 0 );
@@ -219,114 +265,25 @@ void VirtualMachine::DispatchLoop( void )
 	m_Registers->ClearAllRegisters();
 	m_Registers->ClearAllFlags();
 
-	// Point all of the opcodes to NOP initially to ignore invalid opcodes.
-	for ( unsigned int i = 0; i < 0xffff; i++ )
-	{
-		ADD_OPCODE( labelNOP, i );
-	}
-
-	// Add all the current instructions.
-	ADD_OPCODE( labelADD, -1 );
-	ADD_OPCODE( labelAND, -1 );
-	ADD_OPCODE( labelASYNCK, -1 );
-	ADD_OPCODE( labelCALL, -1 );
-	ADD_OPCODE( labelCMP, -1 );
-	ADD_OPCODE( labelCPRINT, -1 );
-	ADD_OPCODE( labelDEC, -1 );
-	ADD_OPCODE( labelDIV, -1 );
-	ADD_OPCODE( labelEPILOG, -1 );
-	ADD_OPCODE( labelFABS, -1 );
-	ADD_OPCODE( labelFADD, -1 );
-	ADD_OPCODE( labelFATAN, -1 );
-	ADD_OPCODE( labelFCHS, -1 );
-	ADD_OPCODE( labelFCOM, -1 );
-	ADD_OPCODE( labelFCOS, -1 );
-	ADD_OPCODE( labelFDIV, -1 );
-	ADD_OPCODE( labelFMUL, -1 );
-	ADD_OPCODE( labelFPOW, -1 );
-	ADD_OPCODE( labelFPRINT, -1 );
-	ADD_OPCODE( labelFSIN, -1 );
-	ADD_OPCODE( labelFSQRT, -1 );
-	ADD_OPCODE( labelFSUB, -1 );
-	ADD_OPCODE( labelFTAN, -1 );
-	ADD_OPCODE( labelFTOI, -1 );
-	ADD_OPCODE( labelGETCH, -1 );
-	ADD_OPCODE( labelIAND, -1 );
-	ADD_OPCODE( labelIDIV, -1 );
-	ADD_OPCODE( labelIMOD, -1 );
-	ADD_OPCODE( labelIMUL, -1 );
-	ADD_OPCODE( labelINC, -1 );
-	ADD_OPCODE( labelINT, -1 );
-	ADD_OPCODE( labelIOR, -1 );
-	ADD_OPCODE( labelIPRINT, -1 );
-	ADD_OPCODE( labelIXOR, -1 );
-	ADD_OPCODE( labelJA, -1 );
-	ADD_OPCODE( labelJAE, -1 );
-	ADD_OPCODE( labelJB, -1 );
-	ADD_OPCODE( labelJBE, -1 );
-	ADD_OPCODE( labelJE, -1 );
-	ADD_OPCODE( labelJG, -1 );
-	ADD_OPCODE( labelJGE, -1 );
-	ADD_OPCODE( labelJL, -1 );
-	ADD_OPCODE( labelJLE, -1 );
-	ADD_OPCODE( labelJMP, -1 );
-	ADD_OPCODE( labelJNE, -1 );
-	ADD_OPCODE( labelJNO, -1 );
-	ADD_OPCODE( labelJNS, -1 );
-	ADD_OPCODE( labelJO, -1 );
-	ADD_OPCODE( labelJS, -1 );
-	ADD_OPCODE( labelJZ, -1 );
-	ADD_OPCODE( labelLEA, -1 );
-	ADD_OPCODE( labelMOD, -1 );
-	ADD_OPCODE( labelMOV, -1 );
-	ADD_OPCODE( labelMUL, -1 );
-	ADD_OPCODE( labelNEG, -1 );
-	ADD_OPCODE( labelNOP, -1 );
-	ADD_OPCODE( labelNOT, -1 );
-	ADD_OPCODE( labelOR, -1 );
-	ADD_OPCODE( labelPOP, -1 );
-	ADD_OPCODE( labelPROLOG, -1 );
-	ADD_OPCODE( labelPUSH, -1 );
-	ADD_OPCODE( labelRCLR, -1 );
-	ADD_OPCODE( labelRET, -1 );
-	ADD_OPCODE( labelRGET, -1 );
-	ADD_OPCODE( labelRPLOT, -1 );
-	ADD_OPCODE( labelRPOS, -1 );
-	ADD_OPCODE( labelSAL, -1 );
-	ADD_OPCODE( labelSAR, -1 );
-	ADD_OPCODE( labelSHL, -1 );
-	ADD_OPCODE( labelSHR, -1 );
-	ADD_OPCODE( labelSIF, -1 );
-	ADD_OPCODE( labelSLEEP, -1 );
-	ADD_OPCODE( labelSUB, -1 );
-	ADD_OPCODE( labelTEST, -1 );
-	ADD_OPCODE( labelTIME, -1 );
-	ADD_OPCODE( labelUIF, -1 );
-	ADD_OPCODE( labelUPRINT, -1 );
-	ADD_OPCODE( labelXADD, -1 );
-	ADD_OPCODE( labelXCHG, -1 );
-	ADD_OPCODE( labelXOR, -1 );
-
-	ADD_OPCODE( labelEND, 0xffff - 1 );
-
 	// Temporary vars.
 	unsigned int resultUI;
 	float resultF;
-	void* opcodeLabel;
+	uint8_t opcode = Instructions::ASM_NOP;
 
 	// Crude way of counting instructions.
 	int instructionCount = 0;
 	int insSec = 0;
 
 	unsigned int lClock = clock();
-
 	unsigned int bp = 0;
+
+	// Variables that are constantly used
+	unsigned int intValue = 0;
 
 	READ_NEXT;
 
 labelBEGIN:
 	instructionCount++;
-	insSec++;
 
 #ifdef SHOW_INSTRUCTION_COUNT
 	if ( insSec > 16000000 )
@@ -339,593 +296,464 @@ labelBEGIN:
 #endif
 
 	// Either do this if you want to sleep or if the VM has been requested to quit.
-	if ( instructionCount > INSTRUCTIONS_PER_1MS_SLEEP || m_StopRequested > 0 )
+	if ( 
+#ifdef INSTRUCTIONS_PER_1MS_SLEEP
+		instructionCount > INSTRUCTIONS_PER_1MS_SLEEP || 
+#endif
+		m_StopRequested > 0 )
 	{
 		if ( m_StopRequested > 0 && WaitForSingleObject( m_VMQuitEvent, 0 ) == WAIT_OBJECT_0 )  
 		{															  
-			goto labelEND;											  
+			opcode = Instructions::END;			
+			m_ProcessorState->ps_ProgramLineOpcodeAndFlags = Instructions::END;
 		}															  
 
 		Sleep( 1 );
 		instructionCount = 0;
 	}
 
-	_asm { jmp opcodeLabel }; 		
-
-	// Function table. See DOCUMENTATION for what these do.
-	while ( 1 )
+	// All instructions in a switch statement
+	switch (m_ProcessorState->ps_ProgramLineOpcodeAndFlags)
 	{
-	labelADD:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );		
+		VARIANT_BF(Instructions::ASM_ADD,
+			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = (*(unsigned int*)m_ProcessorState->ps_Operand1Ptr) + (*(unsigned int*)m_ProcessorState->ps_Operand2Ptr);
+		);
 
-		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr + *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
-		READ_NEXT;
+		VARIANT_BF(Instructions::ASM_AND,
+			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = (*(unsigned int*)m_ProcessorState->ps_Operand1Ptr) & (*(unsigned int*)m_ProcessorState->ps_Operand2Ptr);
+		);
 
-	labelAND:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = ( *(unsigned int*) m_ProcessorState->ps_Operand1Ptr ) & ( *(unsigned int*) m_ProcessorState->ps_Operand2Ptr );
-		READ_NEXT;
+		VARIANT_40(Instructions::ASM_CALL,
+			m_Stack->Push(&m_Registers->r_InstructionPointer);
+			m_Registers->r_InstructionPointer = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
+		);
 
-	labelCALL:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );	
+		VARIANT_3FF(Instructions::ASM_CMP,
+			m_Registers->ClearAllFlags();
 
-		m_Stack->Push( &m_Registers->r_InstructionPointer );
-		m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr;
+			resultUI = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr - *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
 
-		READ_NEXT;
+			if (resultUI == 0) *m_Registers->r_FlagZF = 1;
 
-	labelCMP:
-		m_Registers->ClearAllFlags();
-
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x3FF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		resultUI = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr - *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
-
-		if ( resultUI == 0 ) *m_Registers->r_FlagZF = 1;
-
-		if ( resultUI > *(unsigned int*) m_ProcessorState->ps_Operand1Ptr )
-		{
-			*m_Registers->r_FlagCF = 1;
-		}
-
-		READ_NEXT;
-	
-	labelDEC:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );	
-
-		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr - 1;
-		READ_NEXT;
-	
-	labelDIV:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr / *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
-		READ_NEXT;
-	
-	labelFABS:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		if ( *(float*) m_ProcessorState->ps_Operand1Ptr < 0 ) *(float*) m_ProcessorState->ps_Operand1Ptr = -*(float*) m_ProcessorState->ps_Operand1Ptr;
-		READ_NEXT;
-	
-	labelFADD:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x83F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(float*) m_ProcessorState->ps_Operand1Ptr = *(float*) m_ProcessorState->ps_Operand1Ptr + *(float*) m_ProcessorState->ps_Operand2Ptr;
-		READ_NEXT;
-	
-	labelFATAN:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(float*) m_ProcessorState->ps_Operand1Ptr = atanf( *(float*) m_ProcessorState->ps_Operand1Ptr );
-		READ_NEXT;
-	
-	labelFCHS:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(float*) m_ProcessorState->ps_Operand1Ptr = -*(float*) m_ProcessorState->ps_Operand1Ptr;
-		READ_NEXT;
-	
-	labelFCOM:
-		m_Registers->ClearAllFlags();
-
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xC3F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		resultF = *(float*) m_ProcessorState->ps_Operand1Ptr - *(float*) m_ProcessorState->ps_Operand2Ptr;
-
-		if ( resultF == 0.0f ) *m_Registers->r_FlagZF = 1;
-
-		if ( *(float*) m_ProcessorState->ps_Operand2Ptr >= *(float*) m_ProcessorState->ps_Operand1Ptr && resultF < 0.0f )
-		{
-			*m_Registers->r_FlagOF = 1;
-		}
-
-		READ_NEXT;
-
-	labelFCOS:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(float*) m_ProcessorState->ps_Operand1Ptr = cosf( *(float*) m_ProcessorState->ps_Operand1Ptr );
-
-		READ_NEXT;
-	
-	labelFDIV:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x83F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(float*) m_ProcessorState->ps_Operand1Ptr = *(float*) m_ProcessorState->ps_Operand1Ptr / *(float*) m_ProcessorState->ps_Operand2Ptr;
-
-		READ_NEXT;
-	
-	labelFMUL:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x83F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(float*) m_ProcessorState->ps_Operand1Ptr = *(float*) m_ProcessorState->ps_Operand1Ptr * *(float*) m_ProcessorState->ps_Operand2Ptr;
-
-		READ_NEXT;
-	
-	labelFPOW:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x83F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-
-		*(float*) m_ProcessorState->ps_Operand1Ptr = powf( *(float*) m_ProcessorState->ps_Operand1Ptr, *(float*) m_ProcessorState->ps_Operand2Ptr );
-		READ_NEXT;
-	
-	labelFSIN:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(float*) m_ProcessorState->ps_Operand1Ptr = sinf( *(float*) m_ProcessorState->ps_Operand1Ptr );
-
-		READ_NEXT;
-	
-	labelFSQRT:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(float*) m_ProcessorState->ps_Operand1Ptr = sqrtf( *(float*) m_ProcessorState->ps_Operand1Ptr );
-
-		READ_NEXT;
-	
-	labelFSUB:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x83F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(float*) m_ProcessorState->ps_Operand1Ptr = *(float*) m_ProcessorState->ps_Operand1Ptr - *(float*) m_ProcessorState->ps_Operand2Ptr;
-
-		READ_NEXT;
-	
-	labelFTAN:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(float*) m_ProcessorState->ps_Operand1Ptr = tanf( *(float*) m_ProcessorState->ps_Operand1Ptr );
-
-		READ_NEXT;
-	
-	labelFTOI:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(int*) m_ProcessorState->ps_Operand1Ptr = (int) ( *(float*) m_ProcessorState->ps_Operand1Ptr );
-
-		READ_NEXT;
-
-	labelIAND:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(int*) m_ProcessorState->ps_Operand1Ptr = ( *(int*) m_ProcessorState->ps_Operand1Ptr ) & ( *(int*) m_ProcessorState->ps_Operand2Ptr );
-		READ_NEXT;
-
-	labelIDIV:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(int*) m_ProcessorState->ps_Operand1Ptr = ( *(int*) m_ProcessorState->ps_Operand1Ptr ) / ( *(int*) m_ProcessorState->ps_Operand2Ptr );
-		READ_NEXT;
-
-	labelIMOD:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(int*) m_ProcessorState->ps_Operand1Ptr = ( *(int*) m_ProcessorState->ps_Operand1Ptr ) % ( *(int*) m_ProcessorState->ps_Operand2Ptr );
-		READ_NEXT;
-
-	labelIMUL:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(int*) m_ProcessorState->ps_Operand1Ptr = ( *(int*) m_ProcessorState->ps_Operand1Ptr ) * ( *(int*) m_ProcessorState->ps_Operand2Ptr );
-		READ_NEXT;
-
-	labelINC:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = ( *(unsigned int*) m_ProcessorState->ps_Operand1Ptr ) + 1;
-		READ_NEXT;
-
-	labelINT:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		unsigned int intValue = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr;
-
-		if ( intValue < 256 )
-		{
-			if ( m_InterruptTable[ intValue ] != 0 )
+			if (resultUI > *(unsigned int*)m_ProcessorState->ps_Operand1Ptr)
 			{
-				m_InterruptTable[ intValue ]( this );
+				*m_Registers->r_FlagCF = 1;
 			}
-		}
+		);
 
-		READ_NEXT;
+		VARIANT_15(Instructions::ASM_DEC,
+			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr - 1;
+		);
 
-	labelIOR:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(int*) m_ProcessorState->ps_Operand1Ptr = ( *(int*) m_ProcessorState->ps_Operand1Ptr ) | ( *(int*) m_ProcessorState->ps_Operand2Ptr );
-		READ_NEXT;
+		VARIANT_BF(Instructions::ASM_DIV,
+			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr / *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
+		);
 
-	labelIXOR:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(int*) m_ProcessorState->ps_Operand1Ptr = ( *(int*) m_ProcessorState->ps_Operand1Ptr ) ^ ( *(int*) m_ProcessorState->ps_Operand2Ptr );
-		READ_NEXT;
+		VARIANT_15(Instructions::ASM_FABS,
+			if (*(float*)m_ProcessorState->ps_Operand1Ptr < 0) *(float*)m_ProcessorState->ps_Operand1Ptr = -*(float*)m_ProcessorState->ps_Operand1Ptr;
+		);
 
-	labelJA:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		if ( *m_Registers->r_FlagCF == 0 && *m_Registers->r_FlagZF == 0 ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
-		READ_NEXT;
+		VARIANT_83F(Instructions::ASM_FADD,
+			*(float*)m_ProcessorState->ps_Operand1Ptr = *(float*)m_ProcessorState->ps_Operand1Ptr + *(float*)m_ProcessorState->ps_Operand2Ptr;
+		);
 
-	labelJAE:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		if ( *m_Registers->r_FlagCF == 0 ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
-		READ_NEXT;
+		VARIANT_15(Instructions::ASM_FATAN,
+			*(float*)m_ProcessorState->ps_Operand1Ptr = atanf(*(float*)m_ProcessorState->ps_Operand1Ptr);
+		);
 
-	labelJB:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		if ( *m_Registers->r_FlagCF == 1 ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
-		READ_NEXT;
+		VARIANT_15(Instructions::ASM_FCHS,
+			*(float*)m_ProcessorState->ps_Operand1Ptr = -*(float*)m_ProcessorState->ps_Operand1Ptr;
+		);
 
-	labelJBE:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		if ( *m_Registers->r_FlagCF == 1 || *m_Registers->r_FlagZF == 1 ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
-		READ_NEXT;
+		VARIANT_C3F(Instructions::ASM_FCOM,
+			m_Registers->ClearAllFlags();
+			resultF = *(float*)m_ProcessorState->ps_Operand1Ptr - *(float*)m_ProcessorState->ps_Operand2Ptr;
 
-	labelJE:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		if ( *m_Registers->r_FlagZF == 1 ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
-		READ_NEXT; 
+			if (resultF == 0.0f) *m_Registers->r_FlagZF = 1;
 
-	labelJG:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		if ( *m_Registers->r_FlagZF == 0 && *m_Registers->r_FlagSF == *m_Registers->r_FlagOF ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
-		READ_NEXT;
+			if (*(float*)m_ProcessorState->ps_Operand2Ptr >= *(float*)m_ProcessorState->ps_Operand1Ptr && resultF < 0.0f)
+			{
+				*m_Registers->r_FlagOF = 1;
+			}
+		);
 
-	labelJGE:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		if ( *m_Registers->r_FlagSF == *m_Registers->r_FlagOF ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
-		READ_NEXT;
+		VARIANT_15(Instructions::ASM_FCOS,
+			*(float*)m_ProcessorState->ps_Operand1Ptr = cosf(*(float*)m_ProcessorState->ps_Operand1Ptr);
+		);
 
-	labelJL:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		if ( *m_Registers->r_FlagSF != *m_Registers->r_FlagOF ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
-		READ_NEXT;
+		VARIANT_83F(Instructions::ASM_FDIV,
+			*(float*)m_ProcessorState->ps_Operand1Ptr = *(float*)m_ProcessorState->ps_Operand1Ptr / *(float*)m_ProcessorState->ps_Operand2Ptr;
+		);
 
-	labelJLE:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		if ( *m_Registers->r_FlagZF == 0 || *m_Registers->r_FlagSF != *m_Registers->r_FlagOF ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
-		READ_NEXT;
+		VARIANT_83F(Instructions::ASM_FMUL,
+			*(float*)m_ProcessorState->ps_Operand1Ptr = *(float*)m_ProcessorState->ps_Operand1Ptr * *(float*)m_ProcessorState->ps_Operand2Ptr;
+		);
 
-	labelJMP:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
-		READ_NEXT;
+		VARIANT_83F(Instructions::ASM_FPOW,
+			*(float*)m_ProcessorState->ps_Operand1Ptr = powf(*(float*)m_ProcessorState->ps_Operand1Ptr, *(float*)m_ProcessorState->ps_Operand2Ptr);
+		);
 
-	labelJNE:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		if ( *m_Registers->r_FlagZF == 0 ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
-		READ_NEXT;
+		VARIANT_15(Instructions::ASM_FSIN,
+			*(float*)m_ProcessorState->ps_Operand1Ptr = sinf(*(float*)m_ProcessorState->ps_Operand1Ptr);
+		);
 
-	labelJNO:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		if ( *m_Registers->r_FlagOF == 0 ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
-		READ_NEXT;
+		VARIANT_15(Instructions::ASM_FSQRT,
+			*(float*)m_ProcessorState->ps_Operand1Ptr = sqrtf(*(float*)m_ProcessorState->ps_Operand1Ptr);
+		);
 
-	labelJNS:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		if ( *m_Registers->r_FlagSF == 0 ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
-		READ_NEXT;
+		VARIANT_83F(Instructions::ASM_FSUB,
+			*(float*)m_ProcessorState->ps_Operand1Ptr = *(float*)m_ProcessorState->ps_Operand1Ptr - *(float*)m_ProcessorState->ps_Operand2Ptr;
 
-	labelJO:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		if ( *m_Registers->r_FlagOF == 1 ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
-		READ_NEXT;
+		);
 
-	labelJS:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		if ( *m_Registers->r_FlagSF == 1 ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
-		READ_NEXT;
+		VARIANT_15(Instructions::ASM_FTAN,
+			*(float*)m_ProcessorState->ps_Operand1Ptr = tanf(*(float*)m_ProcessorState->ps_Operand1Ptr);
 
-	labelJZ:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x40, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		if ( *m_Registers->r_FlagZF == 1 ) m_Registers->r_InstructionPointer = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr; 
-		READ_NEXT;
+		);
 
-	labelLEA:
+		VARIANT_15(Instructions::ASM_FTOI,
+			*(int*)m_ProcessorState->ps_Operand1Ptr = (int)(*(float*)m_ProcessorState->ps_Operand1Ptr);
+
+		);
+
+		VARIANT_23F(Instructions::ASM_IAND,
+			*(int*)m_ProcessorState->ps_Operand1Ptr = (*(int*)m_ProcessorState->ps_Operand1Ptr) & (*(int*)m_ProcessorState->ps_Operand2Ptr);
+		);
+
+		VARIANT_23F(Instructions::ASM_IDIV,
+			*(int*)m_ProcessorState->ps_Operand1Ptr = (*(int*)m_ProcessorState->ps_Operand1Ptr) / (*(int*)m_ProcessorState->ps_Operand2Ptr);
+		);
+
+		VARIANT_23F(Instructions::ASM_IMOD,
+			*(int*)m_ProcessorState->ps_Operand1Ptr = (*(int*)m_ProcessorState->ps_Operand1Ptr) % (*(int*)m_ProcessorState->ps_Operand2Ptr);
+		);
+
+		VARIANT_23F(Instructions::ASM_IMUL,
+			*(int*)m_ProcessorState->ps_Operand1Ptr = (*(int*)m_ProcessorState->ps_Operand1Ptr) * (*(int*)m_ProcessorState->ps_Operand2Ptr);
+		);
+
+		VARIANT_15(Instructions::ASM_INC,
+			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = (*(unsigned int*)m_ProcessorState->ps_Operand1Ptr) + 1;
+		);
+
+		VARIANT_40(Instructions::ASM_INT,
+			intValue = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
+
+			if (intValue < 256)
+			{
+				if (m_InterruptTable[intValue] != 0)
+				{
+					m_InterruptTable[intValue](this);
+				}
+			}
+
+		);
+
+		VARIANT_23F(Instructions::ASM_IOR,
+			*(int*)m_ProcessorState->ps_Operand1Ptr = (*(int*)m_ProcessorState->ps_Operand1Ptr) | (*(int*)m_ProcessorState->ps_Operand2Ptr);
+		);
+
+		VARIANT_23F(Instructions::ASM_IXOR,
+			*(int*)m_ProcessorState->ps_Operand1Ptr = (*(int*)m_ProcessorState->ps_Operand1Ptr) ^ (*(int*)m_ProcessorState->ps_Operand2Ptr);
+		);
+
+		VARIANT_40(Instructions::ASM_JA,
+			if (*m_Registers->r_FlagCF == 0 && *m_Registers->r_FlagZF == 0) m_Registers->r_InstructionPointer = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
+		);
+
+		VARIANT_40(Instructions::ASM_JAE,
+			if (*m_Registers->r_FlagCF == 0) m_Registers->r_InstructionPointer = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
+		);
+
+		VARIANT_40(Instructions::ASM_JB,
+			if (*m_Registers->r_FlagCF == 1) m_Registers->r_InstructionPointer = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
+		);
+
+		VARIANT_40(Instructions::ASM_JBE,
+			if (*m_Registers->r_FlagCF == 1 || *m_Registers->r_FlagZF == 1) m_Registers->r_InstructionPointer = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
+		);
+
+		VARIANT_40(Instructions::ASM_JE,
+			if (*m_Registers->r_FlagZF == 1) m_Registers->r_InstructionPointer = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
+		);
+
+		VARIANT_40(Instructions::ASM_JG,
+			if (*m_Registers->r_FlagZF == 0 && *m_Registers->r_FlagSF == *m_Registers->r_FlagOF) m_Registers->r_InstructionPointer = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
+		);
+
+		VARIANT_40(Instructions::ASM_JGE,
+			if (*m_Registers->r_FlagSF == *m_Registers->r_FlagOF) m_Registers->r_InstructionPointer = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
+		);
+
+		VARIANT_40(Instructions::ASM_JL,
+			if (*m_Registers->r_FlagSF != *m_Registers->r_FlagOF) m_Registers->r_InstructionPointer = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
+		);
+
+		VARIANT_40(Instructions::ASM_JLE,
+			if (*m_Registers->r_FlagZF == 0 || *m_Registers->r_FlagSF != *m_Registers->r_FlagOF) m_Registers->r_InstructionPointer = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
+		);
+
+		VARIANT_40(Instructions::ASM_JMP,
+			m_Registers->r_InstructionPointer = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
+		);
+
+		VARIANT_40(Instructions::ASM_JNE,
+			if (*m_Registers->r_FlagZF == 0) m_Registers->r_InstructionPointer = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
+		);
+
+		VARIANT_40(Instructions::ASM_JNO,
+			if (*m_Registers->r_FlagOF == 0) m_Registers->r_InstructionPointer = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
+		);
+
+		VARIANT_40(Instructions::ASM_JNS,
+			if (*m_Registers->r_FlagSF == 0) m_Registers->r_InstructionPointer = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
+		);
+
+		VARIANT_40(Instructions::ASM_JO,
+			if (*m_Registers->r_FlagOF == 1) m_Registers->r_InstructionPointer = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
+		);
+
+		VARIANT_40(Instructions::ASM_JS,
+			if (*m_Registers->r_FlagSF == 1) m_Registers->r_InstructionPointer = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
+		);
+
+		VARIANT_40(Instructions::ASM_JZ,
+			if (*m_Registers->r_FlagZF == 1) m_Registers->r_InstructionPointer = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
+		);
+
+		case Instructions::ASM_LEA:
 		// Not yet implemented.
 		READ_NEXT;
 
-	labelMOD:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = ( *(unsigned int*) m_ProcessorState->ps_Operand1Ptr ) % ( *(unsigned int*) m_ProcessorState->ps_Operand2Ptr );
+		VARIANT_35(Instructions::ASM_LGA,
+			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = m_ProcessorState->ps_Operand2 + m_HeapInfo->hi_StaticHeapSectionOffset;
+		);
+
+		VARIANT_BF(Instructions::ASM_MOD,
+			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = (*(unsigned int*)m_ProcessorState->ps_Operand1Ptr) % (*(unsigned int*)m_ProcessorState->ps_Operand2Ptr);
+		);
+
+		VARIANT_ABF(Instructions::ASM_MOV,
+			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
+
+		);
+
+		VARIANT_BF(Instructions::ASM_MUL,
+			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr * *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
+		);
+
+		VARIANT_15(Instructions::ASM_NEG,
+			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = (*(unsigned int*)m_ProcessorState->ps_Operand1Ptr) * -1;
+		);
+
+		case Instructions::ASM_NOP:
+			Sleep(0);
 		READ_NEXT;
 
-	labelMOV:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xABF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
+		VARIANT_15(Instructions::ASM_NOT,
+			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = ~(*(unsigned int*)m_ProcessorState->ps_Operand1Ptr);
+		);
 
+		VARIANT_BF(Instructions::ASM_OR,
+			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr | *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
+		);
+
+		VARIANT_15(Instructions::ASM_POP,
+			m_Stack->Pop((unsigned int*)m_ProcessorState->ps_Operand1Ptr);
+		);
+
+		VARIANT_555(Instructions::ASM_PUSH,
+			m_Stack->Push((unsigned int*)m_ProcessorState->ps_Operand1Ptr);
+		);
+
+		case Instructions::ASM_RET:
+			m_Stack->Pop(&m_Registers->r_InstructionPointer);
 		READ_NEXT;
 
-	labelMUL:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr * *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
-		READ_NEXT;
+		VARIANT_15(Instructions::ASM_RGET,
 
-	labelNEG:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = ( *(unsigned int*) m_ProcessorState->ps_Operand1Ptr ) * -1;
-		READ_NEXT;
+			if (m_GetPixelFunction != 0)
+			{
+				*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = m_GetPixelFunction(m_Registers->r_RPosX, m_Registers->r_RPosY);
+			}
 
-	labelNOP:
-		_asm{ nop };
-		READ_NEXT;
+			else
+			{
+				*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = 0;
+			}
 
-	labelNOT:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = ~( *(unsigned int*) m_ProcessorState->ps_Operand1Ptr );
-		READ_NEXT;
+		);
 
-	labelOR:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr | *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
-		READ_NEXT;
+		VARIANT_55(Instructions::ASM_RPLOT,
 
-	labelPOP:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		m_Stack->Pop( (unsigned int*) m_ProcessorState->ps_Operand1Ptr );
+			if (m_PlotPixelFunction != 0)
+			{
+				m_PlotPixelFunction(*(unsigned int*)m_ProcessorState->ps_Operand1Ptr, m_Registers->r_RPosX, m_Registers->r_RPosY);
+			}
 
-		READ_NEXT;
+		);
 
-	labelPUSH:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x555, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		m_Stack->Push( (unsigned int*) m_ProcessorState->ps_Operand1Ptr );
+		VARIANT_33F(Instructions::ASM_RPOS,
+			m_Registers->r_RPosX = *(int*)m_ProcessorState->ps_Operand1Ptr;
+			m_Registers->r_RPosY = *(int*)m_ProcessorState->ps_Operand2Ptr;
+		);
 
-		READ_NEXT;
+		VARIANT_23F(Instructions::ASM_SAL,
+			*(int*)m_ProcessorState->ps_Operand1Ptr = (*(int*)m_ProcessorState->ps_Operand1Ptr) << (*(int*)m_ProcessorState->ps_Operand2Ptr);
+		);
 
-	labelRET:
-		//CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x00, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		m_Stack->Pop( &m_Registers->r_InstructionPointer );
-		READ_NEXT;
+		VARIANT_23F(Instructions::ASM_SAR,
+			*(int*)m_ProcessorState->ps_Operand1Ptr = (*(int*)m_ProcessorState->ps_Operand1Ptr) >> (*(int*)m_ProcessorState->ps_Operand2Ptr);
+		);
 
-	labelRGET:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );	
+		VARIANT_BF(Instructions::ASM_SHL,
+			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr << *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
+		);
 
-		if ( m_GetPixelFunction != 0 )
-		{
-			*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = m_GetPixelFunction( m_Registers->r_RPosX, m_Registers->r_RPosY );
-		}
-		
-		else
-		{
-			*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = 0;
-		}
+		VARIANT_BF(Instructions::ASM_SHR,
 
-		READ_NEXT;
+			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr >> *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
+		);
 
-	labelRPLOT:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x55, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		if ( m_PlotPixelFunction != 0 )
-		{
-			m_PlotPixelFunction( *(unsigned int*) m_ProcessorState->ps_Operand1Ptr, m_Registers->r_RPosX, m_Registers->r_RPosY );
-		}
+		VARIANT_15(Instructions::ASM_SIF,
+			*(float*)m_ProcessorState->ps_Operand1Ptr = (float)*(int*)m_ProcessorState->ps_Operand1Ptr;
+		);
 
-		READ_NEXT;
+		VARIANT_BF(Instructions::ASM_SUB,
+			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr - *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
+		);
 
-	labelRPOS:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x33F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		m_Registers->r_RPosX = *(int*) m_ProcessorState->ps_Operand1Ptr;
-		m_Registers->r_RPosY = *(int*) m_ProcessorState->ps_Operand2Ptr;
+		VARIANT_3FF(Instructions::ASM_TEST,
+			m_Registers->ClearAllFlags();
 
-		READ_NEXT;
+			resultUI = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr & *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
 
-	labelSAL:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(int*) m_ProcessorState->ps_Operand1Ptr = ( *(int*) m_ProcessorState->ps_Operand1Ptr ) << ( *(int*) m_ProcessorState->ps_Operand2Ptr );
-		READ_NEXT;
+			if (resultUI == 0) *m_Registers->r_FlagZF = 1;
 
-	labelSAR:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x23F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(int*) m_ProcessorState->ps_Operand1Ptr = ( *(int*) m_ProcessorState->ps_Operand1Ptr ) >> ( *(int*) m_ProcessorState->ps_Operand2Ptr );
-		READ_NEXT;
+			if (resultUI & (1 << 31))
+			{
+				*m_Registers->r_FlagSF = 1;
+			}
 
-	labelSHL:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr << *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
-		READ_NEXT;
+		);
 
-	labelSHR:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr >> *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
-		READ_NEXT;
+		VARIANT_15(Instructions::ASM_UIF,
+			*(float*)m_ProcessorState->ps_Operand1Ptr = (float)*(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
+		);
 
-	labelSIF:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(float*) m_ProcessorState->ps_Operand1Ptr = (float) *(int*) m_ProcessorState->ps_Operand1Ptr;
-		READ_NEXT;
+		VARIANT_3F(Instructions::ASM_XADD,
 
-	labelSUB:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr - *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
-		READ_NEXT;
+			m_ProcessorState->ps_UIOperand1 = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
+			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr + *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
+			*(unsigned int*)m_ProcessorState->ps_Operand2Ptr = m_ProcessorState->ps_UIOperand1;
 
-	labelTEST:
-		m_Registers->ClearAllFlags();
+		);
 
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x3FF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		resultUI = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr & *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
+		VARIANT_3F(Instructions::ASM_XCHG,
 
-		if ( resultUI == 0 ) *m_Registers->r_FlagZF = 1;
+			m_ProcessorState->ps_UIOperand1 = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr;
+			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
+			*(unsigned int*)m_ProcessorState->ps_Operand2Ptr = m_ProcessorState->ps_UIOperand1;
 
-		if ( resultUI & ( 1 << 31 ) )
-		{
-			*m_Registers->r_FlagSF = 1;
-		}
+		);
 
-		READ_NEXT;
+		VARIANT_BF(Instructions::ASM_XOR,
 
-	labelUIF:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x15, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(float*) m_ProcessorState->ps_Operand1Ptr = (float) *(unsigned int*) m_ProcessorState->ps_Operand1Ptr;
-		READ_NEXT;
+			*(unsigned int*)m_ProcessorState->ps_Operand1Ptr = *(unsigned int*)m_ProcessorState->ps_Operand1Ptr ^ *(unsigned int*)m_ProcessorState->ps_Operand2Ptr;
+		);
 
-	labelXADD:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x3F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		m_ProcessorState->ps_UIOperand1 = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr;
-		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr + *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
-		*(unsigned int*) m_ProcessorState->ps_Operand2Ptr = m_ProcessorState->ps_UIOperand1;
+		VARIANT_55(Instructions::ASM_ASYNCK,
 
-		READ_NEXT;
+			m_Registers->ClearAllFlags();
 
-	labelXCHG:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x3F, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		m_ProcessorState->ps_UIOperand1 = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr;
-		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
-		*(unsigned int*) m_ProcessorState->ps_Operand2Ptr = m_ProcessorState->ps_UIOperand1;
+			if (m_CheckKeyFunction != 0 && m_CheckKeyFunction((int)*(unsigned int*)m_ProcessorState->ps_Operand1Ptr))
+			{
+				*m_Registers->r_FlagZF = 1;
+			}
 
-		READ_NEXT;
+		);
 
-	labelXOR:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0xBF, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		*(unsigned int*) m_ProcessorState->ps_Operand1Ptr = *(unsigned int*) m_ProcessorState->ps_Operand1Ptr ^ *(unsigned int*) m_ProcessorState->ps_Operand2Ptr;
-		READ_NEXT;
-
-	labelASYNCK:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x55, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		m_Registers->ClearAllFlags();
-
-		if ( m_CheckKeyFunction != 0 && m_CheckKeyFunction( (int) *(unsigned int*) m_ProcessorState->ps_Operand1Ptr ) )
-		{
-			*m_Registers->r_FlagZF = 1;
-		}
-
-		READ_NEXT;
-
-	labelGETCH:
+		case Instructions::ASM_GETCH:
 		// Not yet implemented
 		READ_NEXT;
 
-	labelTIME:
+		case Instructions::ASM_TIME:
 		// Not yet implemented
 		READ_NEXT;
 
-	labelSLEEP:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x55, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		Sleep( *(unsigned int*) m_ProcessorState->ps_Operand1Ptr );
+		VARIANT_55(Instructions::ASM_SLEEP,
+			Sleep(*(unsigned int*)m_ProcessorState->ps_Operand1Ptr);
+		);
+
+		VARIANT_55(Instructions::ASM_UPRINT,
+			R86_PRINT("%u\n", *(unsigned int*)m_ProcessorState->ps_Operand1Ptr);
+		);
+
+		VARIANT_415(Instructions::ASM_FPRINT,
+			R86_PRINT("%f\n", *(float*)m_ProcessorState->ps_Operand1Ptr);
+		);
+
+		VARIANT_115(Instructions::ASM_IPRINT,
+			R86_PRINT("%d\n", *(int*)m_ProcessorState->ps_Operand1Ptr);
+		);
+
+		VARIANT_115(Instructions::ASM_CPRINT,
+			R86_PRINT("%c", *(char*)m_ProcessorState->ps_Operand1Ptr);
+		);
+
+		case Instructions::ASM_PROLOG:
+			bp = *m_Registers->r_BasePointer;
+
+			*m_Registers->r_BasePointer = *m_Registers->r_StackPointer;
+			m_Stack->Push(&bp);
 
 		READ_NEXT;
 
-	labelUPRINT:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x55, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-			
-		R86_PRINT( "%u\n", *(unsigned int*) m_ProcessorState->ps_Operand1Ptr );
+		case Instructions::ASM_EPILOG:
+			bp = *m_Registers->r_BasePointer;
+
+			m_Stack->Pop(m_Registers->r_BasePointer);
+			*m_Registers->r_StackPointer = bp;
 
 		READ_NEXT;
 
-	labelFPRINT:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x415, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		R86_PRINT( "%f\n", *(float*) m_ProcessorState->ps_Operand1Ptr );
+		VARIANT_40(Instructions::ASM_RCLR,
 
-		READ_NEXT;
+			if (m_ScreenClearFunction != 0)
+			{
+				m_ScreenClearFunction(*(unsigned int*)m_ProcessorState->ps_Operand1Ptr);
+			}
 
-	labelIPRINT:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x115, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		R86_PRINT( "%d\n", *(int*) m_ProcessorState->ps_Operand1Ptr );
-	
-		READ_NEXT;
+		);
 
-	labelCPRINT:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x115, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		R86_PRINT( "%c", *(char*) m_ProcessorState->ps_Operand1Ptr );
-	
-		READ_NEXT;
-
-	labelPROLOG:
-		//CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x0, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		bp = *m_Registers->r_BasePointer;
-
-		*m_Registers->r_BasePointer = *m_Registers->r_StackPointer;
-		m_Stack->Push( &bp );
-
-		READ_NEXT;
-
-	labelEPILOG:
-		//CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 0x0, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		bp = *m_Registers->r_BasePointer;
-
-		m_Stack->Pop( m_Registers->r_BasePointer );
-		*m_Registers->r_StackPointer = bp;
-	
-		READ_NEXT;
-
-	labelRCLR:
-		CheckProgramLineFlags( m_ProcessorState->ps_ProgramLineFlags, 64, m_ProcessorState->ps_Operand1Ptr, m_ProcessorState->ps_Operand2Ptr, m_ProcessorState->ps_Operand1, m_ProcessorState->ps_Operand2 );
-		
-		if ( m_ScreenClearFunction != 0 )
+	default:
+		if (m_ProcessorState->ps_ProgramLineOpcodeAndFlags >= Instructions::NUMBER_OF_INSTRUCTIONS)
 		{
-			m_ScreenClearFunction( *(unsigned int*) m_ProcessorState->ps_Operand1Ptr );
+			m_ProcessorState->ps_ProgramLineOpcodeAndFlags = opcode;
+			goto labelBEGIN;
 		}
-	
-		READ_NEXT;
+	case Instructions::END:
+		break;
 	}
-
-	labelEND:
 
 	return;
 }
 
 // Read the next bytecode instruction and its flags.
-void VirtualMachine::ReadProgram( void )
+void VirtualMachine::ReadProgram(void)
 {
-	if ( m_Registers->r_InstructionPointer > m_CurrentProgram->p_NumberOfInstructions )
+	if (m_Registers->r_InstructionPointer >= m_CurrentProgram->p_NumberOfInstructions)
 	{
-		m_ProcessorState->ps_ProgramLineOpcode = 0xffff - 1;
+		m_ProcessorState->ps_ProgramLineOpcode = UINT8_MAX;
+		m_ProcessorState->ps_ProgramLineOpcodeAndFlags = UINT8_MAX;
 		return;
 	}
 
-	ProgramLine* pl = &m_CurrentProgram->p_ProgramLines[ m_Registers->r_InstructionPointer ];
+	ProgramLine* pl = &m_CurrentProgram->p_ProgramLines[m_Registers->r_InstructionPointer];
 
 	m_ProcessorState->ps_ProgramLineOpcode = pl->pl_Opcode;
 	m_ProcessorState->ps_ProgramLineFlags = pl->pl_Flags;
+	m_ProcessorState->ps_ProgramLineOpcodeAndFlags = pl->pl_OpcodeAndFlags;
 	m_ProcessorState->ps_Operand1 = pl->pl_Operand1;
 	m_ProcessorState->ps_Operand2 = pl->pl_Operand2;
 
@@ -954,12 +782,14 @@ void VirtualMachine::CheckRegister( unsigned int regNum )
 
 		m_Registers->r_InstructionPointer = m_CurrentProgram->p_NumberOfInstructions - 1;
 	}
-}
+}	
 
 // Checks the flags of the program line and make the operand pointers point to the right location in memory.
-void VirtualMachine::CheckProgramLineFlags( unsigned short flags, unsigned short allowedFlags, void*& operand1, void*& operand2, unsigned int operand1Val, unsigned int operand2Val )
+#if ENABLE_HUGE_VARIANTS
+template <const FlagsType allowedFlags, const FlagsType flags>
+inline void VirtualMachine::CheckProgramLineFlags(void*& operand1, void*& operand2, unsigned int operand1Val, unsigned int operand2Val)
 {
-	// Check if any of the operands use a global variable and adjust the address for that.
+	// Check if any of the operands use an inline variable and adjust the address for that.
 	if ( flags & ProgramLineFlags::OPERAND1_PROPERTY_STATIC_HEAP_SECTION )
 	{
 		operand1Val += m_HeapInfo->hi_StaticHeapSectionOffset;
@@ -983,10 +813,10 @@ void VirtualMachine::CheckProgramLineFlags( unsigned short flags, unsigned short
 	else
 	{
 		// Check each individual bit.
-		if ( !( flags & ProgramLineFlags::plf_RawRegisterFlagOp1 ) & allowedFlags )
+		if ( !(( flags & ProgramLineFlags::plf_RawRegisterFlagOp1 ) & allowedFlags) )
 		{
 			operand1 = &m_Registers->r_GeneralRegisters[ operand1Val ];
-			//CheckRegister( operand1Val );
+			CheckRegister( operand1Val );
 		}
 
 		if ( ( flags & ProgramLineFlags::OPERAND1_DEREFERENCE_REGISTER ) & allowedFlags )
@@ -1074,6 +904,128 @@ void VirtualMachine::CheckProgramLineFlags( unsigned short flags, unsigned short
 		CheckAddress( operand2 );
 	}
 #endif
+}
+#endif
+
+
+template <const FlagsType allowedFlags>
+inline void VirtualMachine::CheckProgramLineFlags(const FlagsType flags, void*& operand1, void*& operand2, unsigned int operand1Val, unsigned int operand2Val)
+{
+	// Check if any of the operands use an inline variable and adjust the address for that.
+	if (flags & ProgramLineFlags::OPERAND1_PROPERTY_STATIC_HEAP_SECTION)
+	{
+		operand1Val += m_HeapInfo->hi_StaticHeapSectionOffset;
+	}
+
+	if (flags & ProgramLineFlags::OPERAND2_PROPERTY_STATIC_HEAP_SECTION)
+	{
+		operand2Val += m_HeapInfo->hi_StaticHeapSectionOffset;
+	}
+
+	// No flags? Assume operands point to raw registers.
+	if (flags == ProgramLineFlags::NO_FLAGS)
+	{
+		operand1 = &m_Registers->r_GeneralRegisters[operand1Val];
+		operand2 = &m_Registers->r_GeneralRegisters[operand2Val];
+
+		//CheckRegister( operand1Val );
+		//CheckRegister( operand2Val );
+	}
+
+	else
+	{
+		// Check each individual bit.
+		if (!((flags & ProgramLineFlags::plf_RawRegisterFlagOp1) & allowedFlags))
+		{
+			operand1 = &m_Registers->r_GeneralRegisters[operand1Val];
+			CheckRegister(operand1Val);
+		}
+
+		if ((flags & ProgramLineFlags::OPERAND1_DEREFERENCE_REGISTER) & allowedFlags)
+		{
+			operand1 = &m_HeapInfo->hi_HeapPtr[m_Registers->r_GeneralRegisters[operand1Val]];
+		}
+
+		else if ((flags & ProgramLineFlags::OPERAND1_DEREFERENCE_HEAP) & allowedFlags)
+		{
+			operand1 = &m_HeapInfo->hi_HeapPtr[m_HeapInfo->hi_HeapPtr[operand1Val]];
+		}
+
+		else if ((flags & ProgramLineFlags::OPERAND1_HEAP_ADDRESS) & allowedFlags)
+		{
+			operand1 = &m_HeapInfo->hi_HeapPtr[operand1Val];
+		}
+
+		else if ((flags & ProgramLineFlags::OPERAND1_RAW_UNSIGNED_NUMBER) & allowedFlags)
+		{
+			m_ProcessorState->ps_UIOperand1 = operand1Val;
+			operand1 = &m_ProcessorState->ps_UIOperand1;
+		}
+
+		else if ((flags & ProgramLineFlags::OPERAND1_RAW_SIGNED_NUMBER) & allowedFlags)
+		{
+			m_ProcessorState->ps_IOperand1 = *((int*)&operand1Val);
+			operand1 = &m_ProcessorState->ps_IOperand1;
+		}
+
+		else if ((flags & ProgramLineFlags::OPERAND1_RAW_FLOAT_NUMBER) & allowedFlags)
+		{
+			m_ProcessorState->ps_FOperand1 = *((float*)&operand1Val);
+			operand1 = &m_ProcessorState->ps_FOperand1;
+		}
+
+		if (!(flags & ProgramLineFlags::plf_RawRegisterFlagOp2))
+		{
+			operand2 = &m_Registers->r_GeneralRegisters[operand2Val];
+			//CheckRegister( operand2Val );
+		}
+
+		if ((flags & ProgramLineFlags::OPERAND2_DEREFERENCE_REGISTER) & allowedFlags)
+		{
+			operand2 = &m_HeapInfo->hi_HeapPtr[m_Registers->r_GeneralRegisters[operand2Val]];
+		}
+
+		else if ((flags & ProgramLineFlags::OPERAND2_DEREFERENCE_HEAP) & allowedFlags)
+		{
+			operand2 = &m_HeapInfo->hi_HeapPtr[m_HeapInfo->hi_HeapPtr[operand2Val]];
+		}
+
+		else if ((flags & ProgramLineFlags::OPERAND2_HEAP_ADDRESS) & allowedFlags)
+		{
+			operand2 = &m_HeapInfo->hi_HeapPtr[operand2Val];
+		}
+
+		else if ((flags & ProgramLineFlags::OPERAND2_RAW_UNSIGNED_NUMBER) & allowedFlags)
+		{
+			m_ProcessorState->ps_UIOperand2 = operand2Val;
+			operand2 = &m_ProcessorState->ps_UIOperand2;
+		}
+
+		else if ((flags & ProgramLineFlags::OPERAND2_RAW_SIGNED_NUMBER) & allowedFlags)
+		{
+			m_ProcessorState->ps_IOperand2 = *((int*)&operand2Val);
+			operand2 = &m_ProcessorState->ps_IOperand2;
+		}
+
+		else if ((flags & ProgramLineFlags::OPERAND2_RAW_FLOAT_NUMBER) & allowedFlags)
+		{
+			m_ProcessorState->ps_FOperand2 = *((float*)&operand2Val);
+			operand2 = &m_ProcessorState->ps_FOperand2;
+		}
+	}
+
+	#ifdef HEAP_CHECKS
+	// See if the operands need to be checked for bounds-correctness.
+	if (flags & ProgramLineFlags::plf_HeapCheckFlagsOp1)
+	{
+		CheckAddress(operand1);
+	}
+
+	if (flags & ProgramLineFlags::plf_HeapCheckFlagsOp2)
+	{
+		CheckAddress(operand2);
+	}
+	#endif
 }
 
 void VirtualMachine::ResetProcessor( void )

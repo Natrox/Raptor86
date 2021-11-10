@@ -23,6 +23,7 @@ namespace Raptor
 			// Information about the current program line.
 			unsigned short ps_ProgramLineOpcode;
 			unsigned int ps_ProgramLineFlags;
+			unsigned int ps_ProgramLineOpcodeAndFlags;
 			unsigned int ps_Operand1;
 			unsigned int ps_Operand2;
 

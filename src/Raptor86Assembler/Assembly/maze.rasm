@@ -1,5 +1,5 @@
-$screen_W = 320;
-$screen_H = 240;
+$screen_W = 319;
+$screen_H = 239;
 
 $screen_StrideB = 1280;
 
@@ -40,6 +40,26 @@ $m_w = 65477
 ?render:
 	call ?mazeSearch
 	jmp ?end
+	
+?plot:
+  prolog
+  
+  ; Bounds checking
+	cmp r0, -1s
+	jne ?xokay
+	mov r0, 0
+	?xokay:
+	
+	cmp r1, -1s
+	jne ?yokay
+	mov r1, 0
+	?yokay:
+	
+	rpos r0, r1
+	rplot r8
+	
+	epilog
+	ret
 
 ?mazeSearch:
 	prolog
@@ -64,9 +84,8 @@ $m_w = 65477
 	
 	or r8, 0xff00ad00
 	or r8, r9
-
-	rpos r0, r1
-	rplot r8
+	
+	call ?plot
 
 	mov r4, r0
 	mov r5, r1
@@ -100,8 +119,7 @@ $m_w = 65477
 	sub r0, 1
 	sub r1, 1
 	
-	rpos r0, r1
-	rplot r8
+  call ?plot
 
 	?skipTL:
 
@@ -131,8 +149,7 @@ $m_w = 65477
 	add r0, 1
 	sub r1, 1
 	
-	rpos r0, r1
-	rplot r8
+  call ?plot
 
 	?skipTR:
 
@@ -162,8 +179,7 @@ $m_w = 65477
 	sub r0, 1
 	add r1, 1
 	
-	rpos r0, r1
-	rplot r8
+  call ?plot
 
 	?skipDL:
 
@@ -193,8 +209,7 @@ $m_w = 65477
 	add r0, 1
 	add r1, 1
 	
-	rpos r0, r1
-	rplot r8
+  call ?plot
 
 	?skipDR:
 

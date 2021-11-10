@@ -18,6 +18,7 @@ namespace Raptor
 				ASM_ASYNCK,
 				ASM_CALL,
 				ASM_CMP,
+				ASM_CPRINT,
 				ASM_DEC,
 				ASM_DIV,
 				ASM_EPILOG,
@@ -91,7 +92,9 @@ namespace Raptor
 				ASM_UPRINT,
 				ASM_XADD,
 				ASM_XCHG,
-				ASM_XOR
+				ASM_XOR,
+				ASM_LGA,
+				END = 255
 			};
 
 			static const unsigned int NUMBER_OF_INSTRUCTIONS = ASM_XOR + 1;

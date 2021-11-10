@@ -1,0 +1,39 @@
+; Include binary test in Raptor86 assembly.
+
+$bitmap = incbin "Assembly/crow.raw"
+
+$screen_w = 320
+$screen_h = 240
+$screen_wh = 0
+
+$targetIndex = 0
+
+?_StartCode:
+	mov $screen_wh, $screen_w
+	mul $screen_wh, $screen_h
+	mul $screen_wh, 3
+	
+?_StartSect:
+	; Hey, so, let's read in the bitmap
+	xor r0, r0       ; x
+	xor r1, r1	     ; y
+	lga r2, $bitmap  ; src
+	
+	xor r3, r3       ; col
+	
+	?__beginX:
+		mov r3, [r2]
+		add r2, 3  ; Color is 24-bit
+		and r3, 0x00ffffff
+		or r3,  0xff000000
+		rpos r0, r1
+		rplot r3
+		
+		add r0, 1
+		cmp r0, $screen_w
+		jb ?__beginX
+		xor r0, r0
+		add r1, 1
+		cmp r1, $screen_h
+		jb ?__beginX
+	

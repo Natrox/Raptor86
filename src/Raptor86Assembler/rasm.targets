@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <PropertyPageSchema Include="$(MSBuildThisFileDirectory)rasm.xml" />
+    <AvailableItemName Include="RaptorAssembly">
+      <Targets>RASM</Targets>
+    </AvailableItemName>
+  </ItemGroup>
+
+  <Target
+    Name="RASM"
+    Condition="'@(RaptorAssembly)' != ''"
+    AfterTargets="Link">
+    <Message Importance="High" Text="Assembling all .rasm files!" />
+    
+    <!-- Setup metadata for custom build tool -->
+    <ItemGroup>
+      <RaptorAssembly>
+        <FileType>Document</FileType>
+        <Command>
+          $(TargetPath) Assembly/%(Filename).rasm &amp;&amp; move /Y Assembly\\%(Filename).r86 $(TargetDir)%../bin/
+        </Command>
+        <Outputs>$(TargetDir)../bin/%(Filename).r86</Outputs>
+        <VerifyInputsAndOutputsExist>false</VerifyInputsAndOutputsExist>
+        <LinkObjects>false</LinkObjects>
+      </RaptorAssembly>
+    </ItemGroup>
+
+    <!-- Compile by forwarding to the Custom Build Tool infrastructure -->
+    <CustomBuild Sources="@(RaptorAssembly)"/>
+
+  </Target>
+</Project>
