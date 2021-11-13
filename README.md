@@ -3,6 +3,13 @@ Raptor86
 A toy virtual machine based on the x86-87 instruction set made in my spare time. From time to time, I tinker with it to improve performance and add functionality.
 Everything is MIT-licensed, so feel free to use it as you see fit. If you are a teacher and you are interested in using the project for a class, I would love to assist. Please contact me if you'd like.
 
+Screenshots
+===========
+<p float="left">
+<img src="screenshot1.png" width="49%">
+<img src="screenshot2.png" width="49%">
+</p>
+
 Documentation
 =============
 For unassembled versions of programs, check the "Assembly" folder in the Raptor86 Assembler source directory. The most complex one is "raytracer-buffered.rasm".
@@ -159,7 +166,7 @@ Here is the list of instructions, with optional comments where deemed necessary:
 | XOR          |                                                                                 |
 
 Pre-compilation of opcode+flags variants
-====================
+========================================
 I have now added pre-compiled instruction handlers for common combinations of opcodes and flags (flags are determined by operand types).
 This increases the size of the virtual machine dispatch table, but brings a nice performance benefit.
 It was achieved by adding a variant of CheckProgramLineFlags with both 'flags' and 'allowedFlags' as template parameters. The compiler can then discard unnecessary checks, leading to less branch misprediction. 
@@ -169,7 +176,7 @@ The idea is similar to what modern CPUs implement at hardware-level. Technically
 You may disable this functionality by setting 'ENABLE_HUGE_VARIANTS' to 0. This may be beneficial when debugging.
 
 Future plans
-====================
+============
 I am still not quite done with the project. I'd like to do the following, in no particular order of importance:
 * Remove platform dependencies - no more Windows-specific code in the VM itself.
 * Write a game in R86, to show that the platform could be used for gameplay.
